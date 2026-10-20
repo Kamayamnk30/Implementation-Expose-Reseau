@@ -1,14 +1,14 @@
-# Chapitre 4 - Mise en œuvre : UniPortal, une plateforme universitaire sécurisée par Auth0
+# Chapitre 4 - Mise en œuvre : UniPortal, une plateforme de résultats scolaires sécurisée par Auth0
 
-Le chapitre 3 a présenté Auth0 sous l'angle des principes : notions d'identité, protocoles, architecture, déroulement d'une connexion, sécurité des jetons et implications réseau. Ce chapitre en propose une mise en œuvre concrète. Il décrit UniPortal, une application de consultation et de saisie de notes construite pour l'exposé, qui reprend l'étude de cas du §3.9 et rend observables, dans un navigateur, les mécanismes décrits jusqu'ici.
+Le chapitre 3 a présenté Auth0 sous l'angle des principes : notions d'identité, protocoles, architecture, déroulement d'une connexion, sécurité des jetons et implications réseau. Ce chapitre en propose une mise en œuvre concrète. Il décrit UniPortal, une plateforme de consultation des résultats scolaires d'un collège ou d'un lycée, construite pour l'exposé à partir de l'étude de cas du §3.9.
 
-L'objectif n'est pas de livrer un produit fini, mais un support de démonstration fidèle aux standards : chaque requête échangée est réelle, chaque contrôle de sécurité est visible, et chaque choix technique renvoie à la section du chapitre 3 qui le justifie.
+Le site a l'apparence d'un service scolaire ordinaire : rien, à l'écran, n'évoque Auth0 ni les jetons. Toute la logique d'identité est dans le code, commentée et reliée au chapitre 3, et les mécanismes se démontrent avec les outils de développement du navigateur et un script dédié. Chaque requête échangée est réelle, et chaque choix technique renvoie à la section du chapitre 3 qui le justifie.
 
 ## 4.1 Contexte et objectifs
 
 ### 4.1.1 Du cas d'étude à la démonstration
 
-Le §3.9 imagine une plateforme où les étudiants consultent leurs notes et où les enseignants saisissent celles des cours qu'ils assurent. Il souligne une leçon centrale : Auth0 établit le contexte d'identité, mais c'est l'API qui doit appliquer le contrôle d'accès aux données. UniPortal transforme ce scénario en application fonctionnelle, composée de trois éléments :
+Le §3.9 imagine une plateforme où les étudiants consultent leurs notes et où les enseignants saisissent celles des cours qu'ils assurent. Il souligne une leçon centrale : Auth0 établit le contexte d'identité, mais c'est l'API qui doit appliquer le contrôle d'accès aux données. UniPortal transpose ce scénario dans l'enseignement secondaire : des élèves consultent leurs bulletins trimestriels, des professeurs saisissent les moyennes et appréciations de leurs classes. L'application se compose de trois éléments :
 
 - un **frontend** web, de type Single Page Application (SPA), qui délègue la connexion à Auth0 ;
 - un **tenant Auth0**, configuré avec une application, une API, des connexions, des rôles et une Action ;
@@ -20,7 +20,7 @@ Les objectifs poursuivis sont de deux ordres.
 
 **Objectifs pédagogiques.** Permettre à l'auditoire de :
 
-- suivre pas à pas le flux Authorization Code avec PKCE (§3.4) dans les outils de développement du navigateur ;
+- suivre pas à pas le flux Authorization Code avec PKCE (§3.4) dans les outils de développement du navigateur, derrière une interface ordinaire ;
 - distinguer concrètement l'ID token de l'access token (§3.6.1) ;
 - constater qu'un JWT est lisible par tous, mais que seule la vérification de sa signature permet de lui faire confiance (§3.2.5, §3.6.2) ;
 - observer la différence entre une erreur 401 (jeton refusé) et une erreur 403 (action interdite), qui structure le tableau de dépannage du §3.9 ;
@@ -30,12 +30,13 @@ Les objectifs poursuivis sont de deux ordres.
 
 - conforme aux recommandations actuelles pour les applications publiques : flux Authorization Code avec PKCE, sans secret dans le navigateur ;
 - sans framework ni dépendance applicative, afin que chaque mécanisme reste lisible dans le code ;
+- d'apparence ordinaire pour l'utilisateur, toute la logique d'identité restant dans le code ;
 - documentée en français, chaque fonction renvoyant à la section correspondante du chapitre 3 ;
 - utilisable sur ordinateur comme sur mobile.
 
 ### 4.1.3 Périmètre
 
-UniPortal couvre la connexion (mot de passe, connexion sociale Google, MFA optionnelle), la déconnexion, deux rôles (étudiant et enseignant), la consultation et la saisie de notes, ainsi que deux outils pédagogiques : une **console API** et un **inspecteur JWT**. Les données sont fictives et conservées en mémoire. La gestion d'un rôle administrateur, la persistance en base de données et le déploiement en production sont hors périmètre ; ils sont discutés au §4.11.
+UniPortal couvre la connexion (mot de passe, connexion sociale Google, MFA optionnelle), la déconnexion, deux rôles (élève et professeur), la consultation des bulletins des trois trimestres, leur impression, et la saisie des moyennes et appréciations. Pour l'exposé, un **script en ligne de commande** rejoue les contrôles de l'API ; il ne fait pas partie du site. Les données sont fictives et conservées en mémoire. Les rôles parent et administrateur, la persistance en base de données et le déploiement en production sont hors périmètre ; ils sont discutés au §4.11.
 
 ## 4.2 Architecture générale
 
@@ -62,12 +63,13 @@ Le serveur UniPortal sert à la fois les fichiers du frontend et l'API. Frontend
 | --- | --- | --- | --- |
 | Page d'accueil | `index.html` | Présentation, bouton de connexion, illustration du flux | §3.3.3, §3.4 |
 | Page de retour | `callback.html` | Reçoit le code, l'échange contre les jetons | §3.4 étape 4 |
-| Tableau de bord | `dashboard.html` | Vue par rôle, console API, inspecteur JWT | §3.5.3, §3.6 |
+| Tableau de bord | `dashboard.html` | Bulletin (élève) ou saisie des moyennes (professeur) | §3.5.3, §3.9 |
 | Module d'authentification | `js/auth.js` | Encapsule le SDK Auth0 : connexion, jetons, rôles | §3.3.2 (SDK) |
-| Logique applicative | `js/app.js` | Rendu des pages, appels d'API, outils pédagogiques | §3.9 |
+| Logique applicative | `js/app.js` | Rendu des pages, appels d'API, messages neutres | §3.4 étape 6, §3.9 |
 | Serveur HTTP | `server/server.js` | Fichiers statiques, routage, autorisation | §3.3.2 (API métier) |
 | Validation des jetons | `server/jwt.js` | Signature, algorithme, émetteur, audience, expiration | §3.6.2 |
-| Données | `server/data.js` | Cours, fiches étudiantes, notes en mémoire | §3.9 |
+| Données | `server/data.js` | Classes, matières, élèves, notes en mémoire | §3.9 |
+| Script de démonstration | `outils/demo-api.mjs` | Rejoue les scénarios 200 / 401 / 403 | §3.6.2, §3.9 |
 | Tenant Auth0 | Configuration | Application SPA, API, connexions, rôles, Action | §3.3.1 à §3.3.5 |
 
 ### 4.2.3 Arborescence
@@ -83,6 +85,7 @@ uniportal/
 ├── server/server.js    Serveur HTTP et routes /api
 ├── server/jwt.js       Validation des access tokens
 ├── server/data.js      Données de démonstration
+├── outils/demo-api.mjs Démonstration des contrôles de l'API
 ├── package.json        Script npm start
 └── README.md           Guide de configuration
 ```
@@ -141,7 +144,7 @@ L'algorithme RS256 est asymétrique : Auth0 signe avec une clé privée qu'il es
 
 ### 4.3.4 Rôles et Action post-login
 
-Deux rôles sont créés dans *User Management > Roles* : `etudiant` et `enseignant` (§3.5.3). Par défaut, Auth0 ne place pas les rôles dans les jetons. Une Action (§3.3.5), déclenchée après chaque connexion réussie, les y ajoute :
+Deux rôles sont créés dans *User Management > Roles* : `eleve` et `professeur` (§3.5.3). Par défaut, Auth0 ne place pas les rôles dans les jetons. Une Action (§3.3.5), déclenchée après chaque connexion réussie, les y ajoute :
 
 ```js
 exports.onExecutePostLogin = async (event, api) => {
@@ -233,14 +236,14 @@ HTTP/1.1 200 OK
 
 Le SDK valide l'ID token (signature, émetteur, audience, `nonce`, expiration), stocke les jetons, puis `callback.html` efface le code de l'historique et redirige vers le tableau de bord.
 
-**Étape 6 - Contrôle par l'API.** Le tableau de bord demande les notes :
+**Étape 6 - Contrôle par l'API.** Le tableau de bord demande le bulletin :
 
 ```
-GET /api/notes/me
+GET /api/eleves/me/bulletin?trimestre=3
 Authorization: Bearer eyJhbGciOiJSUzI1NiIs...
 ```
 
-L'API valide le jeton, vérifie le rôle et retrouve la fiche de l'utilisateur grâce à la claim `sub`. Elle répond 200 avec les notes, 401 si le jeton est refusé ou 403 si l'action est interdite. Cette étape est détaillée au §4.6.
+L'API valide le jeton, vérifie le rôle et retrouve la fiche de l'élève grâce à la claim `sub`. Elle répond 200 avec le bulletin, 401 si le jeton est refusé ou 403 si l'action est interdite. Cette étape est détaillée au §4.6.
 
 ### 4.4.3 Rôle des paramètres de sécurité
 
@@ -261,9 +264,19 @@ La fonction `logout()` vide le cache local des jetons, puis redirige vers `/v2/l
 
 ## 4.5 Le frontend
 
-### 4.5.1 Le module d'authentification
+### 4.5.1 Principe : une interface ordinaire
 
-Le fichier `js/auth.js` isole tout ce qui concerne Auth0. Le reste de l'application ne manipule jamais le SDK directement. Chaque fonction est commentée (JSDoc) pour expliquer ce qui se passe côté réseau et protocole.
+Le site se présente comme une plateforme scolaire ordinaire. Aucune page ne mentionne Auth0, les jetons ou les protocoles : l'utilisateur voit un bouton « Se connecter », une page de connexion, puis son bulletin ou sa liste d'élèves. Ce choix reflète la réalité d'un déploiement : l'identité doit être sûre sans être visible.
+
+Toute la logique d'authentification et d'autorisation se trouve dans le code, à trois endroits :
+
+- **les commentaires** : chaque fonction de `js/auth.js` et de `js/app.js`, ainsi que les commentaires HTML des pages, expliquent ce qui se passe côté réseau et protocole, avec un renvoi au chapitre 3 ;
+- **la console du navigateur** : les erreurs Auth0, les refus de l'API (code HTTP et contrôle en échec) et les pistes de diagnostic du §3.7.7 y sont écrits, jamais à l'écran ;
+- **le script `outils/demo-api.mjs`** : il rejoue en ligne de commande les scénarios 200, 401 et 403 pour la démonstration orale (§4.6.8).
+
+### 4.5.2 Le module d'authentification
+
+Le fichier `js/auth.js` isole tout ce qui concerne Auth0. Le reste de l'application ne manipule jamais le SDK directement.
 
 *Tableau 4.5 - Fonctions exportées par js/auth.js*
 
@@ -278,10 +291,10 @@ Le fichier `js/auth.js` isole tout ce qui concerne Auth0. Le reste de l'applicat
 | `getIdToken()` | Renvoie l'ID token brut | Aucun |
 | `getAccessToken()` | Renvoie un access token valide | `POST /oauth/token` si expiré (rotation) |
 | `decodeJWT(token)` | Décode les trois parties, sans vérifier | Aucun |
-| `getUserRole(user)` | Déduit le rôle de la claim des rôles | Aucun |
+| `getUserRole(user)` | Renvoie `eleve`, `professeur` ou `null` | Aucun |
 | `requireAuth()` | Redirige vers l'accueil si aucune session | Aucun |
 
-### 4.5.2 Options du SDK
+### 4.5.3 Options du SDK
 
 ```js
 auth0Client = await window.auth0.createAuth0Client({
@@ -309,50 +322,50 @@ auth0Client = await window.auth0.createAuth0Client({
 
 Les URL de retour sont calculées par rapport à la page courante (`new URL('callback.html', location.href)`). Le projet fonctionne ainsi à la racine d'un serveur comme dans un sous-dossier.
 
-Une fonction `isConfigured()` détecte les valeurs d'exemple laissées dans la configuration. Dans ce cas, la page d'accueil affiche un bandeau explicite au lieu de laisser échouer une résolution DNS sur un domaine fictif.
+Une fonction `isConfigured()` détecte les valeurs d'exemple laissées dans la configuration. Dans ce cas, un clic sur « Se connecter » affiche un message neutre (« La connexion est momentanément indisponible ») et la console précise qu'il faut renseigner le domaine et le *Client ID*.
 
-### 4.5.3 Les pages
+### 4.5.4 Les pages
 
-**Page d'accueil.** Elle présente le projet, les protocoles mis en œuvre et six fonctionnalités, chacune liée à sa section du chapitre 3. Elle illustre aussi le flux en six étapes avec les requêtes HTTP réellement échangées, ainsi que les garde-fous de sécurité.
+**Page d'accueil.** Elle présente la plateforme comme le ferait un établissement : promesse, aperçu d'un bulletin, fonctionnalités, espaces élève et professeur, fonctionnement en trois étapes et questions fréquentes. Les deux boutons « Se connecter » appellent `login()`.
 
 ![Figure 4.4 - Page d'accueil d'UniPortal](images/fig-4-4-accueil.png)
-*Figure 4.4 - Page d'accueil d'UniPortal (bandeau affiché tant que le tenant n'est pas configuré)*
+*Figure 4.4 - Page d'accueil d'UniPortal*
 
 ![Figure 4.5 - Fonctionnalités présentées sur la page d'accueil](images/fig-4-5-fonctionnalites.png)
-*Figure 4.5 - Fonctionnalités et renvois au chapitre 3*
+*Figure 4.5 - Fonctionnalités présentées aux visiteurs*
 
-![Figure 4.6 - Illustration du flux Authorization Code + PKCE](images/fig-4-6-flux.png)
-*Figure 4.6 - Les six étapes du flux, avec les requêtes HTTP correspondantes*
+**Page de retour.** Elle affiche « Connexion en cours... » pendant l'échange du code (§3.4, étape 4). En cas d'échec, l'utilisateur lit « La connexion n'a pas pu aboutir » et dispose de deux boutons, « Réessayer » et « Retour à l'accueil ». L'erreur Auth0 et la piste de diagnostic (`state` invalide, URL de retour non autorisée, accès refusé, problème réseau) sont écrites dans la console.
 
-**Page de retour.** Minimale, elle affiche un indicateur de progression pendant l'échange du code. En cas d'échec, elle affiche le message d'Auth0 et une piste de diagnostic tirée de la méthode du §3.7.7 : `state` invalide, URL de retour non autorisée, accès refusé ou problème réseau.
+**Tableau de bord.** Il est protégé par `requireAuth()` ; le contenu reste masqué tant que la session n'est pas confirmée. La barre supérieure présente l'avatar, le nom, le profil (« Élève » ou « Professeur ») et le bouton de déconnexion. Le rôle, lu dans la claim personnalisée de l'ID token, choisit la vue.
 
-**Tableau de bord.** Il est protégé par `requireAuth()`. Le contenu reste masqué tant que la session n'est pas confirmée, afin d'éviter tout affichage furtif. L'en-tête présente l'avatar, le nom, l'adresse et le rôle de l'utilisateur, ainsi que le bouton de déconnexion. La vue dépend ensuite du rôle.
+- **Élève** : bulletin du trimestre choisi (T1, T2, T3), avec moyenne générale, moyenne de la classe, rang, distinction, puis, par matière, le coefficient, la moyenne, la moyenne de la classe, les notes minimale et maximale et l'appréciation. Un bouton imprime le bulletin.
+- **Professeur** : choix de la classe et de la matière, choix du trimestre, liste des élèves avec saisie de la moyenne et de l'appréciation.
 
-![Figure 4.7 - Tableau de bord d'un étudiant](images/fig-4-7-etudiant.png)
-*Figure 4.7 - Vue étudiant : relevé personnel servi par l'API*
+![Figure 4.6 - Bulletin d'un élève](images/fig-4-6-bulletin.png)
+*Figure 4.6 - Vue élève : bulletin du 2e trimestre servi par l'API*
 
-![Figure 4.8 - Tableau de bord d'un enseignant](images/fig-4-8-enseignant.png)
-*Figure 4.8 - Vue enseignant : étudiants du cours RES301 et saisie des notes*
+![Figure 4.7 - Saisie des moyennes par un professeur](images/fig-4-7-saisie.png)
+*Figure 4.7 - Vue professeur : saisie des moyennes et appréciations de la Seconde B*
 
-La pastille « Données servies par l'API, jeton vérifié » rappelle l'origine des informations. Si le serveur Node n'est pas lancé, par exemple quand le site est servi par un simple `python -m http.server`, le tableau de bord bascule sur des données locales et l'indique.
+### 4.5.5 Des messages neutres pour des refus techniques
+
+Chaque refus de l'API se traduit par un message compréhensible, sans vocabulaire technique. Le détail reste disponible pour l'administrateur dans la console du navigateur.
+
+*Tableau 4.7 - Traduction des réponses de l'API dans l'interface*
+
+| Situation technique | Message affiché | Détail dans la console |
+| --- | --- | --- |
+| Aucun rôle dans l'ID token | « Compte en attente d'activation » | - |
+| 401 : jeton absent, expiré ou refusé | « Session expirée », bouton « Se reconnecter » | Code, contrôle en échec |
+| 403 : rôle, propriété ou affectation | « Accès non autorisé » | Code, contrôle en échec |
+| 502, 500 ou réseau injoignable | « Service momentanément indisponible » | Code ou erreur réseau |
+| Renouvellement du jeton impossible | « Session expirée » | Erreur du SDK |
 
 > **À retenir :** masquer une vue ou un bouton dans le navigateur n'est qu'un confort d'interface. Un utilisateur peut toujours lire le code ou forger une requête. La décision d'accès appartient à l'API (§3.9).
 
-### 4.5.4 L'inspecteur JWT
+### 4.5.6 Ce que le code permet d'examiner
 
-L'inspecteur est un panneau pédagogique inspiré de jwt.io. Il affiche, pour l'ID token comme pour l'access token :
-
-- le jeton encodé, coloré par partie : en-tête en rouge, contenu en violet, signature en bleu ;
-- l'en-tête décodé (algorithme, type, identifiant de clé `kid`) ;
-- le contenu décodé, les horodatages `iat` et `exp` étant traduits en dates lisibles ;
-- la formule de signature RS256 et la signature brute ;
-- un tableau qui explique chaque claim ;
-- un indicateur d'expiration, mis à jour chaque seconde.
-
-![Figure 4.11 - Inspecteur JWT](images/fig-4-11-inspecteur.png)
-*Figure 4.11 - Inspecteur JWT : l'ID token décodé*
-
-Le décodage se fait localement, sans aucune vérification, par la fonction `decodeJWT()` :
+L'interface ne montre aucun jeton, mais le code fournit de quoi les examiner. La fonction `decodeJWT()` de `js/auth.js` décode localement les trois parties d'un JWT, sans aucune vérification :
 
 ```js
 function base64UrlDecode(segment) {
@@ -363,18 +376,16 @@ function base64UrlDecode(segment) {
 }
 ```
 
-Ces quelques lignes suffisent à lire n'importe quel JWT. Cela démontre la mise en garde du §3.2.5 : un JWT est encodé, pas chiffré. Il ne doit contenir aucune donnée confidentielle, et sa lisibilité ne prouve rien.
+Ces quelques lignes suffisent à lire n'importe quel JWT. Elles illustrent la mise en garde du §3.2.5 : un JWT est encodé, pas chiffré. Il ne doit contenir aucune donnée confidentielle, et sa lisibilité ne prouve rien. Pendant l'exposé, l'access token et l'ID token se récupèrent dans l'onglet *Réseau* (en-tête `Authorization` d'une requête `/api`) ou dans le stockage local du navigateur, puis se passent au script de démonstration.
 
-L'onglet « Access token » montre que les deux jetons diffèrent par leur audience : l'ID token est destiné au *Client ID*, l'access token à l'API. Cette différence, invisible dans l'interface, est précisément celle que l'API vérifie (§3.6.1).
+### 4.5.7 Interface et accessibilité
 
-### 4.5.5 Interface et accessibilité
-
-L'interface suit une charte sobre : fond dégradé lavande avec des sphères translucides réalisées en CSS pur, cartes blanches aux angles arrondis, couleur primaire indigo profond (`#1e1b4b`) et accent orangé (`#f59e0b`). La feuille de styles est écrite *mobile-first* : les styles de base ciblent le téléphone, et des requêtes média enrichissent la mise en page à partir de 640 et 900 pixels.
+L'interface suit une charte sobre : fond dégradé lavande avec des sphères translucides réalisées en CSS pur, cartes blanches aux angles arrondis, couleur primaire indigo profond (`#1e1b4b`) et accent orangé (`#f59e0b`). La feuille de styles est écrite *mobile-first* : les styles de base ciblent le téléphone, et des requêtes média enrichissent la mise en page à partir de 640 et 900 pixels. Une feuille d'impression masque la navigation et les boutons pour produire un bulletin propre.
 
 Quelques mesures d'accessibilité ont été appliquées : contrastes suffisants, focus clavier visible, libellés pour les lecteurs d'écran, zones `aria-live` pour les messages, animations désactivées si l'utilisateur le demande (`prefers-reduced-motion`). Toutes les données insérées dans la page sont échappées, ce qui limite le risque d'injection de script.
 
-![Figure 4.12 - Affichage mobile](images/fig-4-12-mobile.png)
-*Figure 4.12 - Tableau de bord sur un écran de 390 pixels*
+![Figure 4.8 - Affichage mobile](images/fig-4-8-mobile.png)
+*Figure 4.8 - Bulletin sur un écran de 390 pixels*
 
 ## 4.6 L'API de validation
 
@@ -389,7 +400,7 @@ Chaque requête vers une route protégée traverse la chaîne de la figure 4.3. 
 ![Figure 4.3 - Chaîne de contrôles de l'API](images/fig-4-3-validation.png)
 *Figure 4.3 - Chaîne de contrôles appliquée par l'API à chaque requête*
 
-*Tableau 4.7 - Contrôles appliqués par l'API*
+*Tableau 4.8 - Contrôles appliqués par l'API*
 
 | N° | Contrôle | Règle | En cas d'échec |
 | --- | --- | --- | --- |
@@ -401,7 +412,7 @@ Chaque requête vers une route protégée traverse la chaîne de la figure 4.3. 
 | 6 | Audience | `aud` contient l'identifiant de l'API | 401 `invalid_token` |
 | 7 | Expiration | `exp` non dépassé, `nbf` atteint, tolérance de 60 s | 401 `invalid_token` |
 | 8 | Rôle | La claim des rôles contient le rôle requis | 403 `insufficient_role` |
-| 9 | Propriété / affectation | La fiche appartient au demandeur, ou l'enseignant est affecté au cours | 403 `forbidden` |
+| 9 | Propriété / affectation | La fiche appartient au demandeur, ou le professeur est affecté à la classe et à la matière | 403 `forbidden` |
 
 Le contrôle de l'algorithme mérite une attention particulière. Si un serveur se fiait au champ `alg` fourni par le jeton lui-même, un attaquant pourrait annoncer `none` (aucune signature) ou `HS256`. Dans ce second cas, la clé publique RSA, qui n'a rien de secret, servirait de clé HMAC. UniPortal n'accepte donc que l'algorithme configuré sur l'API.
 
@@ -429,35 +440,38 @@ Si le tenant ne répond pas alors que la clé demandée est déjà connue, l'API
 
 ### 4.6.5 Autorisation et routes
 
-*Tableau 4.8 - Routes de l'API*
+*Tableau 4.9 - Routes de l'API*
 
 | Méthode et route | Accès | Notion illustrée |
 | --- | --- | --- |
 | `GET /api/sante` | Public | Détection de l'API par le frontend |
-| `GET /api/notes/me` | Rôle `etudiant` | Fiche retrouvée par la claim `sub` |
-| `GET /api/etudiants/:id/notes` | Propriétaire, ou rôle `enseignant` | Modification d'URL refusée (§3.9) |
-| `GET /api/cours/:code/etudiants` | `enseignant` affecté au cours | Autorisation fine (§3.5.3) |
-| `PUT /api/cours/:code/notes/:id` | `enseignant` affecté au cours | Saisie revalidée côté serveur |
+| `GET /api/eleves/me/bulletin?trimestre=` | Rôle `eleve` | Fiche retrouvée par la claim `sub` |
+| `GET /api/eleves/:id/bulletin?trimestre=` | Propriétaire, ou `professeur` de la classe | Modification d'URL refusée (§3.9) |
+| `GET /api/professeurs/me/affectations` | Rôle `professeur` | Classes et matières du professeur |
+| `GET /api/classes/:classe/matieres/:matiere/eleves` | `professeur` affecté | Autorisation fine (§3.5.3) |
+| `PUT /api/classes/:classe/matieres/:matiere/notes/:id` | `professeur` affecté | Saisie revalidée côté serveur |
 
 Trois niveaux d'autorisation se superposent :
 
 - **le rôle** (RBAC, §3.5.3) : un utilisateur sans rôle n'a aucun droit, selon le principe du moindre privilège ;
-- **la propriété** : un étudiant ne peut lire que sa propre fiche, rattachée à sa claim `sub`. Changer le numéro dans l'URL aboutit à un refus 403, même avec un jeton parfaitement valide ;
-- **l'affectation** : un enseignant n'accède qu'aux cours qui lui sont attribués. Dans la démonstration, tout enseignant assure `RES301`, et une demande sur `SEC302` est refusée.
+- **la propriété** : un élève ne peut lire que son propre bulletin, rattaché à sa claim `sub`. Changer l'identifiant dans l'URL aboutit à un refus 403, même avec un jeton parfaitement valide ;
+- **l'affectation** : un professeur n'accède qu'aux classes et matières qui lui sont attribuées. Dans la démonstration, tout professeur enseigne les mathématiques en Seconde B et en Première A ; une demande sur le français est refusée.
 
-Enfin, la note saisie est revalidée par le serveur (nombre compris entre 0 et 20), car un formulaire de navigateur se contourne aisément.
+Enfin, la saisie est revalidée par le serveur : trimestre égal à 1, 2 ou 3, moyenne comprise entre 0 et 20, appréciation de 300 caractères au plus. Un formulaire de navigateur se contourne aisément.
+
+Le modèle de données (`server/data.js`) décrit deux classes, huit matières coefficientées et trois trimestres. Il calcule pour chaque bulletin la moyenne générale pondérée, la moyenne de la classe, les notes minimale et maximale par matière, le rang et une distinction. À sa première connexion, un élève reçoit une fiche en Seconde B, avec des notes générées de façon reproductible à partir de sa claim `sub` ; au trimestre 3, les mathématiques restent à saisir par le professeur.
 
 ### 4.6.6 Codes de réponse
 
-*Tableau 4.9 - Codes de réponse de l'API*
+*Tableau 4.10 - Codes de réponse de l'API*
 
 | Code | Signification | Exemple |
 | --- | --- | --- |
-| 200 | Jeton valide et action autorisée | Relevé de notes |
-| 400 | Requête mal formée | Note égale à 25 |
+| 200 | Jeton valide et action autorisée | Bulletin d'un élève |
+| 400 | Requête mal formée | Moyenne égale à 25, trimestre 4 |
 | 401 | Jeton absent, falsifié, expiré, mauvais émetteur ou mauvaise audience | ID token envoyé à la place de l'access token |
-| 403 | Identité valide, action interdite | Étudiant demandant la fiche d'un autre |
-| 404 | Ressource inexistante | Cours inconnu |
+| 403 | Identité valide, action interdite | Élève demandant le bulletin d'un autre |
+| 404 | Ressource inexistante | Élève absent de la classe indiquée |
 | 502 | Clés publiques du tenant injoignables | Pare-feu bloquant le HTTPS sortant |
 
 Chaque réponse 401 comporte l'en-tête défini par la RFC 6750, qui indique au client le schéma attendu et la raison du refus :
@@ -468,47 +482,44 @@ WWW-Authenticate: Bearer realm="uniportal", error="invalid_token",
   error_description="Signature invalide : le jeton a ete modifie ..."
 ```
 
-À des fins pédagogiques, chaque réponse inclut aussi un tableau `checks` qui retrace les contrôles effectués et leur résultat. Une API de production n'exposerait pas ce niveau de détail, qui renseignerait un attaquant.
+Chaque réponse inclut aussi un tableau `checks` qui retrace les contrôles effectués et leur résultat. Le site ne l'affiche jamais ; il est exploité par la console du navigateur et par le script de démonstration. Une API de production n'exposerait pas ce niveau de détail, qui renseignerait un attaquant.
 
 ### 4.6.7 Journalisation
 
 Le serveur consigne chaque requête : date, méthode, route, statut et durée de traitement.
 
 ```
-[api] 2026-10-20T05:47:39.448Z PUT /api/cours/RES301/notes/E2026-9F91 -> 200 (3 ms)
-[api] 2026-10-20T05:47:39.566Z GET /api/notes/me -> 401 (0 ms)
+[api] 2026-10-20T07:12:04.512Z PUT /api/classes/2B/matieres/MATHS/notes/EL-2B-01 -> 200 (2 ms)
+[api] 2026-10-20T07:12:05.031Z GET /api/eleves/me/bulletin -> 401 (0 ms)
 ```
 
 Conformément au §3.5.5, aucun jeton, mot de passe ou secret n'est écrit dans les journaux. Les horodatages au format ISO 8601 permettent de corréler ces lignes avec les journaux du tenant Auth0 (*Monitoring > Logs*), ce qui suppose des horloges synchronisées (§3.7.6).
 
-### 4.6.8 La console API
+### 4.6.8 Le script de démonstration
 
-La console du tableau de bord envoie de vraies requêtes à l'API et affiche, pour chacune, la requête envoyée, le statut obtenu, l'en-tête `WWW-Authenticate` éventuel, la liste des contrôles et le corps de la réponse. Six scénarios sont proposés, adaptés au rôle de l'utilisateur.
+Puisque l'interface ne montre rien des contrôles, la démonstration orale s'appuie sur un script en ligne de commande, `outils/demo-api.mjs`, sans dépendance. Il reçoit l'access token (et, en option, l'ID token) d'un utilisateur connecté, lit son rôle, puis envoie six requêtes réelles à l'API. Pour chacune, il affiche le code obtenu, la route appelée et le contrôle en échec.
 
-*Tableau 4.10 - Scénarios de la console API*
+*Tableau 4.11 - Scénarios du script de démonstration*
 
 | Scénario | Ce qui est envoyé | Résultat | Contrôle en cause |
 | --- | --- | --- | --- |
 | Requête légitime | Access token valide | 200 | Tous réussis |
 | Sans jeton | Aucun en-tête `Authorization` | 401 | En-tête |
-| Jeton falsifié | Rôles remplacés par `enseignant` et `admin`, signature d'origine conservée | 401 | Signature |
+| Jeton falsifié | Rôles remplacés par `professeur` et `admin`, signature d'origine conservée | 401 | Signature |
 | Mauvais jeton | ID token à la place de l'access token | 401 | Audience |
-| Ressource d'autrui | Fiche d'un autre étudiant (ou cours non affecté pour un enseignant) | 403 | Propriété / affectation |
-| Rôle manquant | Saisie de note par un étudiant (ou route étudiante pour un enseignant) | 403 | Rôle |
+| Ressource d'autrui | Bulletin d'un autre élève (ou matière non enseignée pour un professeur) | 403 | Propriété / affectation |
+| Rôle manquant | Saisie de note par un élève (ou route élève pour un professeur) | 403 | Rôle |
 
-Le scénario du jeton falsifié est le plus parlant. Le frontend décode l'access token, remplace la liste des rôles, réencode le contenu et conserve la signature d'origine. Le jeton obtenu est parfaitement lisible et semble accorder des droits d'enseignant. L'API le rejette pourtant dès la vérification de signature.
+Le scénario du jeton falsifié est le plus parlant. Le script décode l'access token, remplace la liste des rôles, réencode le contenu et conserve la signature d'origine. Le jeton obtenu est parfaitement lisible et semble accorder des droits de professeur. L'API le rejette pourtant dès la vérification de signature.
 
-![Figure 4.9 - Console API : jeton falsifié](images/fig-4-9-console-falsifie.png)
-*Figure 4.9 - Console API : un jeton aux rôles modifiés est rejeté à la vérification de signature*
-
-![Figure 4.10 - Console API : accès à la fiche d'un autre étudiant](images/fig-4-10-console-403.png)
-*Figure 4.10 - Console API : jeton valide, mais fiche d'un autre étudiant, d'où un refus 403*
+![Figure 4.9 - Script de démonstration](images/fig-4-9-demo-api.png)
+*Figure 4.9 - Script de démonstration : six requêtes réelles et le contrôle en cause pour chaque refus*
 
 ## 4.7 Analyse sous l'angle réseau
 
 ### 4.7.1 Flux réseau
 
-*Tableau 4.11 - Flux réseau d'UniPortal*
+*Tableau 4.12 - Flux réseau d'UniPortal*
 
 | Flux | Protocole | Port | Points de contrôle |
 | --- | --- | --- | --- |
@@ -539,15 +550,15 @@ Côté serveur, le terminal affiche en parallèle la journalisation des requête
 
 ### 4.7.4 Impact d'une panne ou d'un filtrage
 
-*Tableau 4.12 - Conséquences d'une défaillance réseau*
+*Tableau 4.13 - Conséquences d'une défaillance réseau*
 
 | Défaillance | Symptôme dans UniPortal | Diagnostic (§3.7.7) |
 | --- | --- | --- |
 | Tenant non résolu (DNS) | La page de connexion ne s'ouvre pas | `nslookup <tenant>` |
-| CDN Auth0 bloqué | Message « SDK Auth0 non chargé » | Filtrage web, proxy |
+| CDN Auth0 bloqué | « Connexion momentanément indisponible » ; cause dans la console | Filtrage web, proxy |
 | URL de retour non déclarée | Erreur Auth0 après connexion | Comparer l'URL exacte à la configuration |
-| HTTPS sortant bloqué côté serveur | L'API répond 502 | Pare-feu sortant, proxy |
-| Horloge du serveur décalée | 401 « expiré » sur des jetons récents | Synchronisation NTP |
+| HTTPS sortant bloqué côté serveur | « Service momentanément indisponible » (502) | Pare-feu sortant, proxy |
+| Horloge du serveur décalée | « Session expirée » sur des jetons récents (401) | Synchronisation NTP |
 | Tenant indisponible | Nouvelles connexions impossibles ; les jetons déjà émis restent valides jusqu'à expiration | Page de statut du fournisseur |
 
 Le dernier cas illustre la dépendance au fournisseur évoquée au §3.8.3. Si le tenant devient injoignable, l'API continue de valider les jetons déjà émis avec les clés gardées en cache. En revanche, aucun nouvel utilisateur ne peut se connecter, et les sessions s'interrompent à l'expiration des jetons, faute de pouvoir les renouveler.
@@ -556,7 +567,7 @@ Le dernier cas illustre la dépendance au fournisseur évoquée au §3.8.3. Si l
 
 ### 4.8.1 Menaces et contre-mesures
 
-*Tableau 4.13 - Menaces et contre-mesures mises en œuvre*
+*Tableau 4.14 - Menaces et contre-mesures mises en œuvre*
 
 | Menace | Contre-mesure | Implémentation | Référence |
 | --- | --- | --- | --- |
@@ -586,7 +597,8 @@ Plusieurs simplifications propres à la démonstration doivent être signalées 
 
 - le serveur écoute en HTTP sur `localhost` ; en production, il serait placé derrière HTTPS (§3.7.2) ;
 - le tableau `checks` renvoyé par l'API documente les refus en détail, ce qu'une API réelle éviterait ;
-- l'affectation des enseignants est simplifiée : tout enseignant assure `RES301` ;
+- les affectations sont simplifiées : tout professeur enseigne les mathématiques en Seconde B et en Première A ;
+- sans backend, le site affiche des données d'exemple, que seule la console signale ;
 - la validation des jetons est écrite à la main pour la lisibilité ; en production, on s'appuierait sur une bibliothèque éprouvée, comme `jose` ou `express-oauth2-jwt-bearer`, qui applique les mêmes contrôles.
 
 ## 4.9 Tests et validation
@@ -598,18 +610,19 @@ Le projet a été vérifié sans tenant Auth0 réel, de manière à tester l'API
 - une **paire de clés RSA** de 2048 bits a été générée localement, et un JWKS équivalent à celui d'un tenant a été publié à partir de la clé publique ;
 - le téléchargement du JWKS par l'API a été redirigé vers ce fichier ; le reste du code s'exécute sans modification ;
 - des **jetons signés RS256** ont été produits avec la clé privée, puis altérés selon chaque scénario ;
-- les requêtes ont été envoyées avec `curl`, puis depuis le tableau de bord dans un navigateur Chromium piloté par Playwright, avec un SDK simulé fournissant ces jetons.
+- les requêtes ont été envoyées avec `curl` et avec le script de démonstration, puis depuis le site dans un navigateur Chromium piloté par Playwright, avec un SDK simulé fournissant ces jetons.
 
 Ces tests valident l'API et le frontend. Ils ne remplacent pas un essai avec un tenant réel, qui reste nécessaire pour vérifier la configuration Auth0 (URL autorisées, Action, rôles).
 
 ### 4.9.2 Résultats côté API
 
-*Tableau 4.14 - Résultats des tests de l'API (19 cas)*
+*Tableau 4.15 - Résultats des tests de l'API*
 
 | Cas testé | Attendu | Obtenu |
 | --- | --- | --- |
 | Route publique `/api/sante` | 200 | 200 |
-| Étudiant, `/api/notes/me` | 200 | 200 |
+| Élève, bulletin du trimestre 1 | 200 | 200 |
+| Élève, trimestre 9 | 400 | 400 |
 | Sans en-tête `Authorization` | 401 | 401 |
 | Schéma `Basic` au lieu de `Bearer` | 401 | 401 |
 | Contenu modifié, signature d'origine | 401 | 401 (signature) |
@@ -619,59 +632,70 @@ Ces tests valident l'API et le frontend. Ils ne remplacent pas un essai avec un 
 | Algorithme `HS256` annoncé | 401 | 401 (algorithme) |
 | Clé `kid` inconnue | 401 | 401 (signature) |
 | Jeton valide sans rôle | 403 | 403 |
-| Étudiant, fiche d'un autre étudiant | 403 | 403 |
-| Étudiant, liste d'un cours | 403 | 403 |
-| Étudiant, saisie de note | 403 | 403 |
-| Enseignant, cours affecté | 200 | 200 |
-| Enseignant, cours non affecté | 403 | 403 |
-| Enseignant, saisie d'une note valide | 200 | 200 |
-| Enseignant, note égale à 25 | 400 | 400 |
-| Note saisie visible par l'étudiant concerné | 14,5 | 14,5 |
+| Élève, bulletin d'un autre élève | 403 | 403 (propriété) |
+| Élève, saisie d'une note | 403 | 403 (rôle) |
+| Professeur, liste de ses affectations | 200 | 200 |
+| Professeur, bulletin d'un élève de sa classe | 200 | 200 |
+| Professeur, matière non enseignée | 403 | 403 (affectation) |
+| Professeur, route réservée aux élèves | 403 | 403 (rôle) |
+| Professeur, saisie d'une moyenne et d'une appréciation | 200 | 200 |
+| Professeur, moyenne égale à 25 | 400 | 400 |
+| Professeur, trimestre 4 | 400 | 400 |
+| Professeur, élève d'une autre classe | 404 | 404 |
+| Moyenne saisie visible dans le bulletin de l'élève | 16,5 | 16,5 |
 
-Les tests ont aussi vérifié que les fichiers du dossier `server/` et `package.json` ne sont pas servis, y compris par une tentative de remontée de répertoire (`/css/../server/data.js`), et qu'une URL mal encodée ne provoque pas d'arrêt du serveur.
+Les tests ont aussi vérifié que les dossiers `server/` et `outils/` ainsi que `package.json` ne sont pas servis, y compris par une tentative de remontée de répertoire (`/css/../server/data.js`), et qu'une URL mal encodée ne provoque pas d'arrêt du serveur. Le repli sur les clés en cache a été testé séparément : tenant injoignable avec une clé déjà connue, puis avec une clé inconnue.
 
 ### 4.9.3 Résultats côté interface
 
-Les six scénarios de la console ont été rejoués pour chacun des deux rôles, soit douze requêtes. Toutes ont produit le code attendu. La saisie d'une note par un enseignant a été suivie de l'affichage de la confirmation, puis de la mise à jour de la liste. L'affichage a été contrôlé à 1280 et à 390 pixels de large, sans défilement horizontal de la page. Enfin, le tableau de bord sans configuration renvoie bien vers l'accueil, et l'accueil affiche alors le bandeau d'aide.
+Le texte visible de chaque page a été extrait et analysé : accueil, page de retour en erreur, bulletin aux trimestres 2 et 3, saisie professeur, compte sans rôle, sur écran large et sur mobile. Aucune page n'affiche de terme technique (Auth0, jeton, JWT, OAuth, API, codes 401 ou 403), et aucune erreur JavaScript n'a été relevée. Les parcours suivants ont été vérifiés :
+
+- accueil sans configuration : le clic sur « Se connecter » affiche le message neutre attendu ;
+- échec du retour : message « Connexion interrompue » et boutons de reprise ;
+- élève : changement de trimestre et impression ;
+- professeur : saisie d'une moyenne et d'une appréciation, confirmation, mise à jour de la liste, changement de classe ;
+- compte sans rôle : message « Compte en attente d'activation ».
+
+L'affichage a été contrôlé à 1280 et à 390 pixels de large, sans défilement horizontal de la page.
 
 ## 4.10 Guide de démonstration pour l'oral
 
-La démonstration dure une dizaine de minutes. Elle suppose un tenant configuré, deux comptes (un étudiant, un enseignant) et le serveur lancé avec `npm start`.
+La démonstration dure une dizaine de minutes. Elle suppose un tenant configuré, deux comptes (un élève, un professeur), le serveur lancé avec `npm start` et un terminal ouvert dans le dossier `uniportal`.
 
-*Tableau 4.15 - Déroulé conseillé de la démonstration*
+*Tableau 4.16 - Déroulé conseillé de la démonstration*
 
 | N° | Action | Ce que l'on montre | Phrase clé |
 | --- | --- | --- | --- |
-| 1 | Ouvrir l'accueil et l'onglet *Réseau* | Le site ne contient aucun formulaire de mot de passe | « L'application ne verra jamais le mot de passe. » |
+| 1 | Ouvrir l'accueil et l'onglet *Réseau* | Un site ordinaire, sans formulaire de mot de passe | « L'application ne verra jamais le mot de passe. » |
 | 2 | Cliquer sur « Se connecter » | `GET /authorize`, `code_challenge`, `state` | « Seule l'empreinte du secret PKCE quitte le navigateur. » |
-| 3 | Se connecter en étudiant | Universal Login, retour `302` avec `code` | « Le code seul ne sert à rien sans le verifier. » |
+| 3 | Se connecter en élève | Universal Login, retour `302` avec `code` | « Le code seul ne sert à rien sans le verifier. » |
 | 4 | Montrer `POST /oauth/token` | Les trois jetons | « Trois jetons, trois rôles : ils ne sont pas interchangeables. » |
-| 5 | Ouvrir l'inspecteur JWT | Contenu lisible, audiences différentes | « Lisible ne veut pas dire fiable. » |
-| 6 | Console : jeton falsifié | 401, contrôle de signature en échec | « Modifier un rôle casse la signature. » |
-| 7 | Console : ID token envoyé | 401, audience | « L'ID token n'est pas fait pour appeler une API. » |
-| 8 | Console : fiche d'un autre | 403, propriété | « Jeton valide ne veut pas dire accès autorisé. » |
-| 9 | Second navigateur en enseignant, saisir une note | La note apparaît chez l'étudiant | « La donnée vit côté serveur, protégée par l'API. » |
+| 5 | Montrer l'appel `/api/eleves/me/bulletin` | L'en-tête `Authorization: Bearer` | « C'est l'API qui décide, à partir de l'access token. » |
+| 6 | Script : jeton falsifié | 401, contrôle de signature en échec | « Modifier un rôle casse la signature. » |
+| 7 | Script : ID token envoyé | 401, audience | « L'ID token n'est pas fait pour appeler une API. » |
+| 8 | Script : bulletin d'un autre élève | 403, propriété | « Jeton valide ne veut pas dire accès autorisé. » |
+| 9 | Second navigateur en professeur, saisir la moyenne de mathématiques | La note apparaît dans le bulletin de l'élève | « La donnée vit côté serveur, protégée par l'API. » |
 | 10 | Montrer les journaux du tenant et du terminal | Corrélation des événements, sans jeton | « On journalise les événements, jamais les secrets. » |
 
-En cas d'absence de réseau le jour de l'exposé, l'accueil reste consultable. Le flux y est illustré avec les requêtes réelles, et le tableau de bord peut fonctionner en mode local grâce aux données de repli.
+Si le réseau fait défaut le jour de l'exposé, le site reste consultable avec les données locales d'exemple, et les figures de ce chapitre peuvent remplacer la démonstration en direct.
 
 ## 4.11 Limites et perspectives
 
-**Limites.** Les données sont conservées en mémoire et perdues à l'arrêt du serveur. Il n'existe que deux rôles, sans administrateur, et l'affectation aux cours est simplifiée. Le serveur fonctionne en HTTP local. Enfin, les essais ont été menés avec des jetons signés localement : la configuration du tenant reste à valider en conditions réelles.
+**Limites.** Les données sont conservées en mémoire et perdues à l'arrêt du serveur. Il n'existe que deux rôles, sans administrateur ni parent, et les affectations des professeurs sont simplifiées. Le serveur fonctionne en HTTP local. Sans backend, le site affiche des données d'exemple, signalées dans la console seulement. Enfin, les essais ont été menés avec des jetons signés localement : la configuration du tenant reste à valider en conditions réelles.
 
 **Perspectives.**
 
-- persister les données dans une base, avec une table d'affectation enseignant-cours ;
-- ajouter un rôle administrateur protégé par une MFA obligatoire (§3.5.2) ;
+- persister les données dans une base, avec les tables d'affectation professeur-classe-matière ;
+- ajouter un rôle parent, rattaché à un ou plusieurs élèves, et un rôle administrateur protégé par une MFA obligatoire (§3.5.2) ;
 - remplacer la validation manuelle par une bibliothèque éprouvée et ajouter des tests automatisés ;
-- utiliser les *permissions* RBAC d'Auth0 (claim `permissions`, par exemple `read:notes` et `write:notes`) à la place des seuls rôles ;
+- utiliser les *permissions* RBAC d'Auth0 (claim `permissions`, par exemple `read:bulletin` et `write:notes`) à la place des seuls rôles ;
 - déployer derrière un reverse proxy HTTPS, avec un domaine personnalisé pour le tenant (§3.7.1, §3.7.5) ;
 - exporter les journaux du tenant vers un SIEM et les corréler avec ceux de l'API (§3.5.5, §3.7.6) ;
 - appliquer une politique de sécurité du contenu (CSP) et réduire la durée de vie des jetons.
 
 ## 4.12 Conclusion
 
-UniPortal montre qu'une intégration d'Auth0 fidèle aux standards tient en peu de code, à condition d'en comprendre chaque élément. Le frontend délègue l'authentification à Universal Login et laisse le SDK appliquer PKCE, `state` et `nonce`. Le tenant porte l'identité, les connexions et les rôles. L'API, enfin, applique la règle centrale du chapitre 3 : elle ne fait confiance qu'à un jeton dont elle a vérifié la signature, l'émetteur, l'audience et l'expiration, puis elle décide seule de l'accès aux données.
+UniPortal montre qu'une intégration d'Auth0 fidèle aux standards tient en peu de code, à condition d'en comprendre chaque élément, et qu'elle peut rester invisible pour l'utilisateur : le site ressemble à n'importe quelle plateforme scolaire. Le frontend délègue l'authentification à Universal Login et laisse le SDK appliquer PKCE, `state` et `nonce`. Le tenant porte l'identité, les connexions et les rôles. L'API, enfin, applique la règle centrale du chapitre 3 : elle ne fait confiance qu'à un jeton dont elle a vérifié la signature, l'émetteur, l'audience et l'expiration, puis elle décide seule de l'accès aux données.
 
 Pour l'administration réseau, la démonstration rend tangibles des notions souvent abstraites : les flux HTTPS sur TCP/443, le rôle du DNS et de TLS, le flux sortant vers le JWKS, et la lecture d'un 401 ou d'un 403 lors d'un diagnostic. Elle illustre enfin la responsabilité partagée du §3.8.3 : Auth0 fournit des mécanismes solides, mais la sécurité de l'ensemble dépend de la configuration, du code de l'API et de l'infrastructure réseau.
 
@@ -701,7 +725,9 @@ npm start
 
 Le serveur écoute sur `http://localhost:8080`. Il lit le domaine et l'audience dans `js/auth.js`. Les variables d'environnement `AUTH0_DOMAIN`, `AUTH0_AUDIENCE` et `PORT` permettent de les surcharger.
 
-**Lancement du frontend seul.** `python -m http.server 8080` dans le dossier `uniportal`. Le tableau de bord fonctionne alors en mode local, sans console API.
+**Lancement du frontend seul.** `python -m http.server 8080` dans le dossier `uniportal`. Le tableau de bord affiche alors des données locales d'exemple.
+
+**Script de démonstration.** Après connexion sur le site, récupérer l'access token (onglet *Réseau*, en-tête `Authorization` d'une requête `/api`) puis lancer `node outils/demo-api.mjs "<access_token>" "<id_token>"`. L'option `--url` vise un serveur distant.
 
 Il faut utiliser `localhost` et non `127.0.0.1` : Auth0 considère ces deux origines comme différentes.
 
@@ -712,7 +738,7 @@ Il faut utiliser `localhost` et non `127.0.0.1` : Auth0 considère ces deux orig
 **Requête type.**
 
 ```
-GET /api/notes/me HTTP/1.1
+GET /api/eleves/me/bulletin?trimestre=2 HTTP/1.1
 Host: localhost:8080
 Authorization: Bearer <access_token>
 Accept: application/json
@@ -722,25 +748,26 @@ Accept: application/json
 
 ```json
 {
-  "etudiant": { "id": "E2026-254C", "nom": "Awa Traoré", "groupe": "TD1" },
-  "moyenne": 12.72,
-  "notes": [
-    { "code": "SEC302", "matiere": "Sécurité des systèmes", "coef": 3, "note": 13.25 }
+  "eleve": { "id": "EL-C87A", "nom": "Mariama Ba", "classe": { "code": "2B", "nom": "Seconde B" } },
+  "annee": "2025-2026",
+  "trimestre": 2,
+  "matieres": [
+    { "code": "MATHS", "nom": "Mathématiques", "coef": 4, "note": 15.5,
+      "moyenneClasse": 13.06, "min": 9.5, "max": 15.5, "appreciation": "Très bon travail, continuez ainsi." }
   ],
-  "checks": [
-    { "name": "Signature", "ok": true, "detail": "Vérifiée avec la clé publique ..." }
-  ]
+  "moyenne": 15.36, "moyenneClasse": 13.54, "rang": 3, "effectif": 9, "mention": "Compliments",
+  "checks": [ { "name": "Signature", "ok": true, "detail": "Vérifiée avec la clé publique ..." } ]
 }
 ```
 
-**Saisie d'une note.**
+**Saisie d'une moyenne.**
 
 ```
-PUT /api/cours/RES301/notes/E2024-027 HTTP/1.1
-Authorization: Bearer <access_token enseignant>
+PUT /api/classes/2B/matieres/MATHS/notes/EL-2B-02 HTTP/1.1
+Authorization: Bearer <access_token professeur>
 Content-Type: application/json
 
-{ "note": 14.5 }
+{ "trimestre": 3, "note": 14.5, "appreciation": "Bon trimestre, travail régulier." }
 ```
 
 **Réponse d'erreur.**
@@ -748,31 +775,32 @@ Content-Type: application/json
 ```json
 {
   "error": "forbidden",
-  "message": "Cette fiche appartient à un autre étudiant : le jeton est valide, mais l'accès est refusé.",
+  "message": "Ce bulletin appartient à un autre élève : le jeton est valide, mais l'accès est refusé.",
   "checks": [ "..." ]
 }
 ```
 
 ## Annexe C - Dépannage
 
-*Tableau 4.16 - Symptômes courants et actions*
+*Tableau 4.17 - Symptômes courants et actions*
 
 | Symptôme | Cause probable | Action |
 | --- | --- | --- |
-| Bandeau « Auth0 n'est pas encore configuré » | Valeurs d'exemple dans `js/auth.js` | Renseigner le domaine et le *Client ID* |
-| `Callback URL mismatch` | URL de retour non déclarée | Comparer l'URL exacte à la configuration |
+| « La connexion est momentanément indisponible » | Valeurs d'exemple dans `js/auth.js` | Renseigner le domaine et le *Client ID* ; voir la console |
+| `Callback URL mismatch` sur la page Auth0 | URL de retour non déclarée | Comparer l'URL exacte à la configuration |
 | Page Auth0 inaccessible | DNS, proxy, pare-feu, certificat | Tester la résolution et l'accès HTTPS |
-| `Invalid state` au retour | Page rechargée, transaction expirée | Relancer la connexion depuis l'accueil |
-| Rôle toujours « Étudiant » | Rôle non assigné ou Action non attachée | Vérifier les rôles et le déclencheur post-login, se reconnecter |
-| « Mode local : API non démarrée » | Site servi sans le serveur Node | Lancer `npm start` |
-| 403 sur toutes les routes | Aucun rôle dans l'access token | L'Action doit écrire dans `api.accessToken` |
-| 401 « audience » sur une requête légitime | Audience différente entre Auth0 et le code | Aligner l'identifiant de l'API, se reconnecter |
-| Access token « opaque » dans l'inspecteur | Audience absente | Déclarer l'API et renseigner `audience` |
-| 502 côté API | JWKS injoignable depuis le serveur | Vérifier DNS et HTTPS sortant |
+| « Connexion interrompue » | `state` invalide, accès refusé | Lire la piste écrite dans la console, relancer la connexion |
+| « Compte en attente d'activation » | Rôle non assigné ou Action non attachée | Vérifier les rôles et le déclencheur post-login, se reconnecter |
+| « Accès non autorisé » partout | Aucun rôle dans l'access token | L'Action doit écrire dans `api.accessToken` |
+| « Session expirée » à chaque appel | Audience absente ou différente | Aligner l'identifiant de l'API, se reconnecter |
+| Données d'exemple au lieu des vraies notes | Site servi sans le serveur Node | Lancer `npm start` |
+| « Service momentanément indisponible » | JWKS injoignable depuis le serveur (502) | Vérifier DNS et HTTPS sortant |
+
+Dans tous les cas, la console du navigateur indique le code HTTP et le contrôle en échec.
 
 ## Annexe D - Glossaire complémentaire
 
-*Tableau 4.17 - Termes propres à la mise en œuvre*
+*Tableau 4.18 - Termes propres à la mise en œuvre*
 
 | Terme | Définition |
 | --- | --- |

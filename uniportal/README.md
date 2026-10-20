@@ -1,23 +1,27 @@
 # UniPortal
 
-Plateforme universitaire de consultation de notes, construite pour illustrer le **chapitre 3 de l'exposé d'administration réseau : présentation générale d'Auth0**.
+Plateforme de consultation des résultats scolaires (collège et lycée) : bulletins trimestriels pour les élèves, saisie des moyennes et appréciations pour les professeurs. Elle sert de mise en œuvre au **chapitre 3 de l'exposé d'administration réseau : présentation générale d'Auth0**.
+
+L'interface est celle d'un site ordinaire : rien n'y évoque Auth0 ni les jetons. Toute la logique d'authentification et d'autorisation se trouve dans le code, commentée et reliée aux sections du chapitre 3. Les erreurs techniques sont écrites dans la console du navigateur, jamais à l'écran.
 
 Le frontend est en HTML, CSS et JavaScript vanilla. L'authentification repose sur Auth0 avec le flux **Authorization Code + PKCE** (OAuth 2.0 / OpenID Connect), des **JWT** signés et un contrôle d'accès par **rôles (RBAC)**.
 
-Un backend Node.js léger, sans aucune dépendance, joue le rôle de l'API métier : il valide chaque access token (signature, émetteur, audience, expiration) puis applique les droits. Il rend l'étape 6 du §3.4 démontrable en direct.
+Un backend Node.js léger, sans aucune dépendance, joue le rôle de l'API métier : il valide chaque access token (signature, émetteur, audience, expiration) puis applique les droits. Le script `outils/demo-api.mjs` rend l'étape 6 du §3.4 démontrable en direct.
 
 ```
 uniportal/
-├── index.html        Page d'accueil publique (fonctionnalités, flux, sécurité)
+├── index.html        Page d'accueil publique
 ├── callback.html     Retour du flux Auth0 : échange du code contre les jetons
-├── dashboard.html    Espace protégé : vue étudiant / enseignant + inspecteur JWT
-├── css/style.css     Styles globaux (mobile-first)
+├── dashboard.html    Espace protégé : bulletin (élève) ou saisie (professeur)
+├── css/style.css     Styles globaux (mobile-first, impression du bulletin)
 ├── js/auth.js        Module Auth0 (SDK, login, logout, jetons, rôles)
-├── js/app.js         Logique applicative des trois pages, console API
+├── js/app.js         Logique applicative des trois pages
 ├── server/
 │   ├── server.js     Serveur HTTP : fichiers du frontend + routes /api
 │   ├── jwt.js        Validation des access tokens (JWKS, RS256, iss, aud, exp)
-│   └── data.js       Données de démonstration en mémoire
+│   └── data.js       Classes, matières, élèves et notes en mémoire
+├── outils/
+│   └── demo-api.mjs  Démonstration des contrôles de l'API (200 / 401 / 403)
 ├── package.json      Script npm start (aucune dépendance à installer)
 └── README.md         Ce guide
 ```
@@ -30,14 +34,14 @@ uniportal/
 | Redirection vers Universal Login | §3.3.3 |
 | Connexion Google | §3.3.4 |
 | Action post-login (rôles dans le jeton) | §3.3.5 |
-| Les 6 étapes de la page d'accueil | §3.4 |
+| Connexion, retour et appel d'API (`js/auth.js`, `js/app.js`) | §3.4 |
 | MFA, RBAC, journaux | §3.5.2, §3.5.3, §3.5.5 |
-| ID token / access token, inspecteur JWT | §3.6.1, §3.6.2 |
+| ID token / access token, `decodeJWT()` | §3.6.1, §3.6.2 |
 | Endpoints /authorize, /oauth/token, /v2/logout | §3.7.4 |
-| Messages d'erreur du callback | §3.7.7, §3.9 |
-| Vues étudiant / enseignant | §3.9 |
+| Pistes de diagnostic du callback (console) | §3.7.7, §3.9 |
+| Vues élève / professeur | §3.9 |
 | Validation du jeton par l'API (server/jwt.js) | §3.4 étape 6, §3.6.2 |
-| Codes 401 / 403 de la console API | §3.9, tableau de dépannage |
+| Codes 401 / 403 rejoués par `outils/demo-api.mjs` | §3.9, tableau de dépannage |
 | Téléchargement des clés publiques (JWKS) | §3.7.3, flux API vers métadonnées |
 
 ---
@@ -111,11 +115,11 @@ L'API représente le backend qui servirait les notes. Elle permet d'obtenir un a
 ### 7. Créer les rôles
 
 1. **User Management > Roles > Create Role**.
-2. Créez `etudiant` (description : « Consulte ses propres notes »).
-3. Créez `enseignant` (description : « Saisit les notes de ses cours »).
+2. Créez `eleve` (description : « Consulte son bulletin »).
+3. Créez `professeur` (description : « Saisit les moyennes de ses classes »).
 4. **User Management > Users** : ouvrez un utilisateur (créez-en un si nécessaire), onglet **Roles > Assign Roles**.
 
-Les noms doivent être écrits exactement `etudiant` et `enseignant`, sans accent, car `getUserRole()` les compare tels quels. Un utilisateur sans rôle est traité comme étudiant (moindre privilège, §3.5.3).
+Les noms doivent être écrits exactement `eleve` et `professeur`, sans accent, car `getUserRole()` et l'API les comparent tels quels. Un utilisateur sans rôle voit le message « Compte en attente d'activation » et l'API lui refuse tout accès (moindre privilège, §3.5.3).
 
 ### 8. Créer une Action post-login
 
@@ -147,7 +151,7 @@ exports.onExecutePostLogin = async (event, api) => {
   // Access token : lu par l'API metier pour autoriser ou refuser (§3.4, etape 6)
   api.accessToken.setCustomClaim(namespace, roles);
 
-  // Facultatif : nom affiche par l'API dans la liste des etudiants de l'enseignant
+  // Facultatif : nom affiche dans la liste d'eleves du professeur
   api.accessToken.setCustomClaim('https://uniportal.example.com/name', event.user.name);
 };
 ```
@@ -171,7 +175,7 @@ Le serveur écoute sur `http://localhost:8080`, sert les pages et expose `/api`.
 AUTH0_DOMAIN=uniportal-demo.eu.auth0.com AUTH0_AUDIENCE=https://api.uniportal.example.com PORT=8080 npm start
 ```
 
-**Frontend seul**, sans API : le tableau de bord bascule alors sur des données locales et la console API est désactivée.
+**Frontend seul**, sans API : le tableau de bord affiche alors des données locales d'exemple (un message l'indique dans la console du navigateur).
 
 Avec Python :
 
@@ -199,12 +203,13 @@ Ouvrez ensuite `http://localhost:8080`. Utilisez `localhost` et non `127.0.0.1` 
 | Méthode et route | Accès | Démontre |
 | --- | --- | --- |
 | `GET /api/sante` | Public | Détection de l'API par le frontend |
-| `GET /api/notes/me` | Rôle `etudiant` | Fiche retrouvée par la claim `sub` |
-| `GET /api/etudiants/:id/notes` | Propriétaire ou `enseignant` | Modification d'URL refusée (§3.9) |
-| `GET /api/cours/:code/etudiants` | `enseignant` affecté au cours | Autorisation fine (§3.5.3) |
-| `PUT /api/cours/:code/notes/:id` | `enseignant` affecté au cours | Saisie revalidée côté serveur |
+| `GET /api/eleves/me/bulletin?trimestre=` | Rôle `eleve` | Fiche retrouvée par la claim `sub` |
+| `GET /api/eleves/:id/bulletin?trimestre=` | Propriétaire, ou `professeur` de la classe | Modification d'URL refusée (§3.9) |
+| `GET /api/professeurs/me/affectations` | Rôle `professeur` | Classes et matières du professeur |
+| `GET /api/classes/:classe/matieres/:matiere/eleves?trimestre=` | `professeur` affecté | Autorisation fine (§3.5.3) |
+| `PUT /api/classes/:classe/matieres/:matiere/notes/:id` | `professeur` affecté | Saisie revalidée côté serveur |
 
-Dans la démonstration, tout enseignant est affecté au cours `RES301`. Chaque étudiant reçoit une fiche à sa première connexion.
+Dans la démonstration, tout professeur enseigne les mathématiques en Seconde B (`2B`) et en Première A (`1A`). Chaque élève reçoit une fiche en Seconde B à sa première connexion, avec des notes générées pour les trimestres 1 et 2 ; le trimestre 3 est en cours et les mathématiques restent à saisir.
 
 ### Contrôles appliqués à chaque requête
 
@@ -217,7 +222,7 @@ Dans la démonstration, tout enseignant est affecté au cours `RES301`. Chaque �
 5. **Audience** : `aud` doit contenir l'identifiant de l'API, ce qui exclut l'ID token.
 6. **Expiration** : `exp` (et `nbf`), avec une tolérance de 60 s pour les écarts d'horloge.
 
-Viennent ensuite les contrôles métier : rôle, propriété de la fiche, affectation au cours. Chaque réponse renvoie la liste `checks` des contrôles effectués, affichée par la console API.
+Viennent ensuite les contrôles métier : rôle, propriété de la fiche, affectation du professeur. Chaque réponse renvoie la liste `checks` des contrôles effectués ; le site ne l'affiche pas, mais le script de démonstration et la console du navigateur l'exploitent.
 
 | Réponse | Signification |
 | --- | --- |
@@ -228,9 +233,14 @@ Viennent ensuite les contrôles métier : rôle, propriété de la fiche, affect
 
 Le terminal du serveur journalise chaque requête (méthode, route, statut, durée), jamais le jeton (§3.5.5).
 
-### Console API
+### Script de démonstration
 
-Le tableau de bord propose six scénarios qui envoient de vraies requêtes :
+`outils/demo-api.mjs` rejoue six scénarios contre l'API avec les jetons d'un utilisateur connecté :
+
+```bash
+node outils/demo-api.mjs "<access_token>" "<id_token>"          # API locale
+node outils/demo-api.mjs "<access_token>" --url https://uniportal.onrender.com
+```
 
 | Scénario | Résultat attendu |
 | --- | --- |
@@ -238,8 +248,16 @@ Le tableau de bord propose six scénarios qui envoient de vraies requêtes :
 | Sans jeton | 401 |
 | Jeton falsifié : rôles modifiés, signature d'origine conservée | 401, signature invalide |
 | ID token envoyé à la place de l'access token | 401, mauvaise audience |
-| Fiche d'un autre étudiant, ou cours non affecté pour un enseignant | 403 |
+| Bulletin d'un autre élève, ou matière non enseignée pour un professeur | 403 |
 | Action réservée à l'autre rôle | 403 |
+
+Pour récupérer les jetons après connexion : onglet **Réseau** des outils de développement (en-tête `Authorization` d'une requête `/api/...`), ou dans la console du navigateur, sur le tableau de bord :
+
+```js
+const k = Object.keys(localStorage).find((x) => x.startsWith('@@auth0spajs@@') && !x.includes('@@user@@'));
+const { body } = JSON.parse(localStorage.getItem(k));
+console.log(body.access_token, body.id_token);
+```
 
 En production, on confierait ces contrôles à une bibliothèque éprouvée (`jose`, `express-oauth2-jwt-bearer`) ; le code est écrit à la main ici pour que chaque contrôle reste visible.
 
@@ -247,7 +265,7 @@ En production, on confierait ces contrôles à une bibliothèque éprouvée (`jo
 
 ## Mise en ligne sur Render
 
-Render exécute `npm start` tel quel : frontend, API, console et synchronisation des notes fonctionnent comme en local, avec un certificat HTTPS fourni automatiquement. Le fichier `render.yaml`, à la racine du dépôt, décrit le service.
+Render exécute `npm start` tel quel : frontend, API et synchronisation des notes fonctionnent comme en local, avec un certificat HTTPS fourni automatiquement. Le fichier `render.yaml`, à la racine du dépôt, décrit le service.
 
 ### 1. Préparer le dépôt
 
@@ -277,7 +295,7 @@ Remplacez `uniportal` par le nom réellement attribué par Render, puis enregist
 ### 4. Vérifier
 
 - `https://<votre-service>.onrender.com/api/sante` doit renvoyer `{"status":"ok", ...}` avec le bon émetteur.
-- La connexion doit ramener sur `callback.html`, puis sur le tableau de bord avec la pastille « Données servies par l'API ».
+- La connexion doit ramener sur `callback.html`, puis sur le tableau de bord avec le bulletin ou la saisie selon le rôle.
 
 ### Points d'attention
 
@@ -292,9 +310,9 @@ Remplacez `uniportal` par le nom réellement attribué par Render, puis enregist
 1. Ouvrir les outils de développement, onglet **Réseau**, avec l'option « Conserver le journal ».
 2. Cliquer sur **Se connecter** : observer `GET /authorize` et ses paramètres `code_challenge`, `state` et `nonce`.
 3. Se connecter : observer la redirection `302` vers `callback.html?code=...&state=...`, puis `POST /oauth/token` avec `code_verifier`.
-4. Sur le tableau de bord, comparer l'ID token et l'access token dans l'inspecteur JWT : `aud` diffère, et la claim des rôles est présente dans les deux.
-5. Dans la console API, rejouer les six scénarios en commentant le contrôle qui échoue. Le scénario « Jeton falsifié » montre qu'un jeton lisible n'est pas un jeton fiable.
-6. Ouvrir un second navigateur (ou une fenêtre privée) avec un compte enseignant, saisir une note, puis recharger la page de l'étudiant : la note est servie par l'API.
+4. Sur le tableau de bord, montrer dans l'onglet **Réseau** l'appel `/api/eleves/me/bulletin` et son en-tête `Authorization: Bearer`.
+5. Dans un terminal, lancer `outils/demo-api.mjs` avec les jetons récupérés, et commenter le contrôle qui échoue pour chaque scénario. Le scénario « Jeton falsifié » montre qu'un jeton lisible n'est pas un jeton fiable.
+6. Ouvrir un second navigateur (ou une fenêtre privée) avec un compte professeur, saisir la moyenne de mathématiques de l'élève, puis recharger son bulletin : la note est servie par l'API.
 7. Changer le rôle de l'utilisateur dans Auth0, se déconnecter puis se reconnecter : la vue change.
 8. Montrer **Monitoring > Logs** dans le tableau de bord Auth0 et le journal du terminal (§3.5.5).
 
@@ -302,16 +320,18 @@ Remplacez `uniportal` par le nom réellement attribué par Render, puis enregist
 
 | Symptôme | Cause probable | Vérification |
 | --- | --- | --- |
-| Bandeau « Auth0 n'est pas encore configuré » | Placeholders encore présents | `domain` et `clientId` dans `js/auth.js` |
+| « La connexion est momentanément indisponible » | Placeholders encore présents | `domain` et `clientId` dans `js/auth.js` ; message détaillé dans la console |
 | `Callback URL mismatch` | URL de retour non autorisée | Étape 4, comparer l'URL exacte |
 | Page Auth0 inaccessible | DNS, proxy, pare-feu, certificat | `nslookup <tenant>`, accès HTTPS sur TCP/443 (§3.7.7) |
-| Rôle toujours « Étudiant » | Action non attachée ou rôle non assigné | Étapes 7 et 8, puis se reconnecter |
-| Access token « opaque » dans l'inspecteur | Audience absente ou incorrecte | Étape 6, valeur `audience` |
+| « Compte en attente d'activation » | Rôle non assigné ou Action non attachée | Étapes 7 et 8, puis se reconnecter |
+| « Session expirée » à chaque appel | Audience absente : access token opaque | Étape 6, valeur `audience` |
 | `Invalid state` au callback | Page rechargée ou transaction expirée | Relancer la connexion depuis l'accueil |
-| « Mode local : API non démarrée » | Site servi par Python ou live-server | Lancer `npm start` et ouvrir le site depuis ce serveur |
-| 403 sur toutes les routes de l'API | Aucun rôle dans l'access token | Étapes 7 et 8 ; l'Action doit écrire dans `api.accessToken` |
+| Données d'exemple au lieu des vraies notes | Site servi par Python ou live-server | Lancer `npm start` et ouvrir le site depuis ce serveur |
+| « Accès non autorisé » | Aucun rôle dans l'access token | Étapes 7 et 8 ; l'Action doit écrire dans `api.accessToken` |
 | 401 « audience » sur une requête légitime | `audience` différente entre Auth0 et `js/auth.js` | Étape 6, puis se reconnecter |
-| 502 côté API | Le serveur ne joint pas le JWKS du tenant | DNS et HTTPS sortant depuis la machine du serveur (§3.7.3) |
+| « Service momentanément indisponible » (502) | Le serveur ne joint pas le JWKS du tenant | DNS et HTTPS sortant depuis la machine du serveur (§3.7.3) |
+
+Dans tous les cas, la console du navigateur indique le code HTTP et le contrôle en échec.
 
 ## Limites de la démonstration
 

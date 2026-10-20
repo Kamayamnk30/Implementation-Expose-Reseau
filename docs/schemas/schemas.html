@@ -48,8 +48,8 @@
   <text x="80" y="264" class="s">PKCE, state, nonce, cache des jetons</text>
   <rect x="64" y="292" width="352" height="82" rx="10" fill="#eef0ff"/>
   <text x="80" y="316" class="t">js/app.js</text>
-  <text x="80" y="338" class="s">Vues par rôle, console API,</text>
-  <text x="80" y="358" class="s">inspecteur JWT</text>
+  <text x="80" y="338" class="s">Bulletin (élève), saisie (professeur),</text>
+  <text x="80" y="358" class="s">appels à l'API avec l'access token</text>
 
   <!-- Auth0 -->
   <rect x="960" y="70" width="400" height="330" rx="16" fill="#fff" stroke="#d5d3e8" stroke-width="1.5"/>
@@ -63,7 +63,7 @@
   <text x="984" y="248" class="m">/.well-known/jwks.json</text>
   <rect x="984" y="270" width="352" height="104" rx="10" fill="#fef3c7"/>
   <text x="1000" y="294" class="t">Rôles et Action post-login</text>
-  <text x="1000" y="316" class="s">etudiant, enseignant</text>
+  <text x="1000" y="316" class="s">eleve, professeur</text>
   <text x="1000" y="338" class="s">Injecte la claim des rôles dans</text>
   <text x="1000" y="358" class="s">l'ID token et l'access token</text>
 
@@ -165,7 +165,7 @@
   <!-- 6 -->
   <text x="40" y="630" class="num">6</text>
   <line x1="510" y1="630" x2="1224" y2="630" stroke="#f59e0b" stroke-width="2.5" marker-end="url(#b2)"/>
-  <text x="526" y="620" class="ma">GET /api/notes/me   Authorization: Bearer access_token</text>
+  <text x="526" y="620" class="ma">GET /api/eleves/me/bulletin   Authorization: Bearer access_token</text>
   <line x1="1230" y1="684" x2="886" y2="684" stroke="#1e1b4b" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#b1)"/>
   <text x="900" y="674" class="m">GET /.well-known/jwks.json</text>
   <text x="900" y="704" class="s">si la clé n'est pas en cache</text>
@@ -217,7 +217,7 @@
     <rect x="1160" y="110" width="200" height="96" rx="12" fill="#fef3c7" stroke="#f59e0b" stroke-width="1.5"/>
     <text x="1260" y="140" text-anchor="middle" class="t">8. Droits</text>
     <text x="1260" y="162" text-anchor="middle" class="s">rôle, propriété,</text>
-    <text x="1260" y="182" text-anchor="middle" class="s">affectation au cours</text>
+    <text x="1260" y="182" text-anchor="middle" class="s">affectation</text>
   </g>
 
   <g stroke="#1e1b4b" stroke-width="2" marker-end="url(#c1)">

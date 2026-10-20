@@ -22,7 +22,9 @@ import { extname, join, normalize, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { createVerifier, TokenError, JwksError } from './jwt.js';
-import { COURSES, TEACHER_COURSES, studentForUser, findStudent, transcript, courseRoster, setGrade } from './data.js';
+import {
+  TRIMESTRES, MATIERES, CLASSES, AFFECTATIONS, eleveForUser, findEleve, bulletin, releveClasse, enregistrerNote,
+} from './data.js';
 
 /* --------------------------------------------------------------------------
    Configuration
@@ -174,9 +176,27 @@ async function readJsonBody(req) {
   }
 }
 
+/** Lit et valide le parametre ?trimestre= (1, 2 ou 3 ; 3 par defaut). */
+function trimestreParam(url) {
+  const t = Number(url.searchParams.get('trimestre') || 3);
+  if (!TRIMESTRES.includes(t)) throw new HttpError(400, 'invalid_trimester', 'Le trimestre doit valoir 1, 2 ou 3.');
+  return t;
+}
+
+/** Verifie l'affectation du professeur a la classe et a la matiere (§3.5.3). */
+function requireAffectation(auth, classe, matiere) {
+  if (!CLASSES[classe]) throw new HttpError(404, 'not_found', `Aucune classe ${classe}.`);
+  if (!MATIERES[matiere]) throw new HttpError(404, 'not_found', `Aucune matière ${matiere}.`);
+  const ok = AFFECTATIONS.some((a) => a.classe === classe && a.matiere === matiere);
+  requireRule(auth, ok, 'Affectation',
+    `Demandé : ${matiere} en ${classe} ; affectations : ${AFFECTATIONS.map((a) => `${a.matiere} en ${a.classe}`).join(', ')}.`,
+    `Vous n'enseignez pas cette matière dans cette classe.`);
+}
+
 /**
  * Table de routage : [methode, motif, gestionnaire].
- * Les gestionnaires recoivent les groupes captures du motif.
+ * Les gestionnaires recoivent la requete, l'URL analysee et les groupes
+ * captures du motif.
  */
 const ROUTES = [
   // Route publique : permet au frontend de detecter l'API.
@@ -186,73 +206,86 @@ const ROUTES = [
     audience: AUTH0_AUDIENCE,
   })],
 
-  // Releve de l'etudiant connecte : la fiche est retrouvee par la claim sub.
-  ['GET', /^\/api\/notes\/me$/, async (req) => {
+  // Bulletin de l'eleve connecte : la fiche est retrouvee par la claim sub.
+  ['GET', /^\/api\/eleves\/me\/bulletin$/, async (req, url) => {
     const auth = await authenticate(req);
-    requireRole(auth, 'etudiant');
-    const student = studentForUser(auth.claims);
-    auth.checks.push({ name: 'Propriété', ok: true, detail: `Fiche ${student.id} rattachée au sub du jeton.` });
-    return { ...transcript(student), checks: auth.checks };
+    requireRole(auth, 'eleve');
+    const eleve = eleveForUser(auth.claims);
+    auth.checks.push({ name: 'Propriété', ok: true, detail: `Fiche ${eleve.id} rattachée au sub du jeton.` });
+    return { ...bulletin(eleve, trimestreParam(url)), checks: auth.checks };
   }],
 
-  // Fiche d'un etudiant par son numero : illustre la modification d'URL du §3.9.
-  ['GET', /^\/api\/etudiants\/([\w-]+)\/notes$/, async (req, id) => {
+  // Bulletin d'un eleve par son identifiant : illustre la modification d'URL du §3.9.
+  // Un eleve n'accede qu'a sa propre fiche ; un professeur, aux eleves de ses classes.
+  ['GET', /^\/api\/eleves\/([\w-]+)\/bulletin$/, async (req, url, id) => {
     const auth = await authenticate(req);
-    const student = findStudent(id);
-    if (!student) throw new HttpError(404, 'not_found', `Aucun étudiant ${id}.`);
+    const eleve = findEleve(id);
+    if (!eleve) throw new HttpError(404, 'not_found', `Aucun élève ${id}.`);
 
-    if (auth.roles.includes('enseignant')) {
-      auth.checks.push({ name: 'Rôle "enseignant"', ok: true, detail: 'Consultation autorisée pour les enseignants.' });
+    if (auth.roles.includes('professeur')) {
+      const ok = AFFECTATIONS.some((a) => a.classe === eleve.classe);
+      requireRule(auth, ok, 'Affectation', `Élève de ${eleve.classe}.`, 'Cet élève n\'appartient à aucune de vos classes.');
     } else {
-      requireRole(auth, 'etudiant');
-      const own = studentForUser(auth.claims);
-      requireRule(auth, own.id === student.id, 'Propriété',
-        own.id === student.id ? 'La fiche appartient au demandeur.' : `Fiche ${student.id} demandée, fiche du demandeur : ${own.id}.`,
-        'Cette fiche appartient à un autre étudiant : le jeton est valide, mais l\'accès est refusé.');
+      requireRole(auth, 'eleve');
+      const own = eleveForUser(auth.claims);
+      requireRule(auth, own.id === eleve.id, 'Propriété',
+        own.id === eleve.id ? 'La fiche appartient au demandeur.' : `Fiche ${eleve.id} demandée, fiche du demandeur : ${own.id}.`,
+        'Ce bulletin appartient à un autre élève : le jeton est valide, mais l\'accès est refusé.');
     }
-    return { ...transcript(student), checks: auth.checks };
+    return { ...bulletin(eleve, trimestreParam(url)), checks: auth.checks };
   }],
 
-  // Liste des etudiants d'un cours : enseignant affecte uniquement.
-  ['GET', /^\/api\/cours\/([\w-]+)\/etudiants$/, async (req, code) => {
+  // Classes et matieres du professeur connecte.
+  ['GET', /^\/api\/professeurs\/me\/affectations$/, async (req) => {
     const auth = await authenticate(req);
-    requireRole(auth, 'enseignant');
-    if (!COURSES[code]) throw new HttpError(404, 'not_found', `Aucun cours ${code}.`);
-    requireRule(auth, TEACHER_COURSES.includes(code), 'Affectation au cours',
-      `Cours demandé : ${code}, cours affectés : ${TEACHER_COURSES.join(', ')}.`,
-      `Vous n'êtes pas affecté au cours ${code}.`);
-    return { ...courseRoster(code), checks: auth.checks };
+    requireRole(auth, 'professeur');
+    return {
+      professeur: { nom: auth.claims['https://uniportal.example.com/name'] || null },
+      affectations: AFFECTATIONS.map((a) => ({ classe: CLASSES[a.classe], matiere: { code: a.matiere, nom: MATIERES[a.matiere].nom } })),
+      checks: auth.checks,
+    };
   }],
 
-  // Saisie d'une note : enseignant affecte, note comprise entre 0 et 20.
-  ['PUT', /^\/api\/cours\/([\w-]+)\/notes\/([\w-]+)$/, async (req, code, id) => {
+  // Releve d'une classe pour une matiere : professeur affecte uniquement.
+  ['GET', /^\/api\/classes\/([\w-]+)\/matieres\/([\w-]+)\/eleves$/, async (req, url, classe, matiere) => {
     const auth = await authenticate(req);
-    requireRole(auth, 'enseignant');
-    if (!COURSES[code]) throw new HttpError(404, 'not_found', `Aucun cours ${code}.`);
-    requireRule(auth, TEACHER_COURSES.includes(code), 'Affectation au cours',
-      `Cours demandé : ${code}, cours affectés : ${TEACHER_COURSES.join(', ')}.`,
-      `Vous n'êtes pas affecté au cours ${code}.`);
-    if (!findStudent(id)) throw new HttpError(404, 'not_found', `Aucun étudiant ${id}.`);
+    requireRole(auth, 'professeur');
+    requireAffectation(auth, classe, matiere);
+    return { ...releveClasse(classe, matiere, trimestreParam(url)), checks: auth.checks };
+  }],
+
+  // Saisie d'une moyenne et d'une appreciation : professeur affecte uniquement.
+  ['PUT', /^\/api\/classes\/([\w-]+)\/matieres\/([\w-]+)\/notes\/([\w-]+)$/, async (req, url, classe, matiere, id) => {
+    const auth = await authenticate(req);
+    requireRole(auth, 'professeur');
+    requireAffectation(auth, classe, matiere);
+    const eleve = findEleve(id);
+    if (!eleve || eleve.classe !== classe) throw new HttpError(404, 'not_found', `Aucun élève ${id} en ${classe}.`);
 
     // Le serveur revalide la saisie : le formulaire du navigateur peut etre contourne.
-    const { note } = await readJsonBody(req);
-    if (typeof note !== 'number' || Number.isNaN(note) || note < 0 || note > 20) {
-      throw new HttpError(400, 'invalid_grade', 'La note doit être un nombre compris entre 0 et 20.');
+    const { trimestre, note, appreciation } = await readJsonBody(req);
+    if (!TRIMESTRES.includes(trimestre)) throw new HttpError(400, 'invalid_trimester', 'Le trimestre doit valoir 1, 2 ou 3.');
+    if (note !== null && (typeof note !== 'number' || Number.isNaN(note) || note < 0 || note > 20)) {
+      throw new HttpError(400, 'invalid_grade', 'La moyenne doit être un nombre compris entre 0 et 20.');
     }
-    setGrade(code, id, Math.round(note * 100) / 100);
-    return { ok: true, cours: code, etudiant: id, note, checks: auth.checks };
+    if (appreciation !== undefined && appreciation !== null && (typeof appreciation !== 'string' || appreciation.length > 300)) {
+      throw new HttpError(400, 'invalid_comment', 'L\'appréciation doit être un texte de 300 caractères au plus.');
+    }
+    const valeur = note === null ? null : Math.round(note * 100) / 100;
+    enregistrerNote(id, matiere, trimestre, valeur, appreciation?.trim());
+    return { ok: true, classe, matiere, eleve: id, trimestre, note: valeur, checks: auth.checks };
   }],
 ];
 
-async function handleApi(req, res, pathname) {
+async function handleApi(req, res, url) {
   for (const [method, pattern, handler] of ROUTES) {
-    const match = pathname.match(pattern);
+    const match = url.pathname.match(pattern);
     if (!match) continue;
     if (req.method !== method) continue;
-    const body = await handler(req, ...match.slice(1));
+    const body = await handler(req, url, ...match.slice(1));
     return sendJson(res, 200, body);
   }
-  throw new HttpError(404, 'not_found', `Route inconnue : ${req.method} ${pathname}`);
+  throw new HttpError(404, 'not_found', `Route inconnue : ${req.method} ${url.pathname}`);
 }
 
 /* --------------------------------------------------------------------------
@@ -303,13 +336,14 @@ async function serveStatic(req, res, pathname) {
    -------------------------------------------------------------------------- */
 
 const server = createServer(async (req, res) => {
-  const { pathname } = new URL(req.url, 'http://localhost');
+  const url = new URL(req.url, 'http://localhost');
+  const { pathname } = url;
   const started = Date.now();
 
   if (!pathname.startsWith('/api/')) return serveStatic(req, res, pathname);
 
   try {
-    await handleApi(req, res, pathname);
+    await handleApi(req, res, url);
   } catch (err) {
     if (err instanceof HttpError) {
       sendError(res, err);

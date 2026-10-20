@@ -9,6 +9,15 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
 </head>
+<!--
+  Page de retour du flux Auth0 (§3.4, etape 4). Auth0 redirige ici avec
+  ?code=...&state=... ; app.js appelle handleCallback(), qui verifie le state
+  et echange le code contre les jetons (POST /oauth/token avec le
+  code_verifier de PKCE), puis redirige vers le tableau de bord.
+  En cas d'echec, l'utilisateur voit un message neutre ; le detail technique
+  et la piste de diagnostic (§3.7.7) sont ecrits dans la console.
+  Cette URL doit figurer dans les "Allowed Callback URLs" de l'application.
+-->
 <body data-page="callback">
 
   <div class="bubbles" aria-hidden="true">
@@ -18,12 +27,6 @@
     <div class="bubble bubble--5"></div>
   </div>
 
-  <!--
-    Page de retour du flux (§3.4, étape 4) : Auth0 redirige ici avec
-    ?code=...&state=... ; app.js appelle handleCallback() qui échange le code
-    contre les jetons (POST /oauth/token + code_verifier), puis redirige vers
-    le tableau de bord.
-  -->
   <main class="center-screen">
     <div class="card callback-card" role="status" aria-live="polite">
       <span class="logo">
@@ -33,15 +36,12 @@
 
       <div class="spinner" id="callback-spinner"></div>
       <h1 id="callback-title">Connexion en cours...</h1>
-      <p id="callback-text">Échange du code d'autorisation contre les jetons.</p>
+      <p id="callback-text">Veuillez patienter quelques instants.</p>
 
-      <div class="callback-error" id="callback-error">
-        <strong>La connexion a échoué</strong>
-        <span id="callback-error-message"></span>
-        <p class="muted-note" id="callback-error-hint"></p>
+      <div class="callback-actions" id="callback-actions">
+        <button class="btn btn--primary" data-action="login">Réessayer</button>
+        <a href="index.html" class="btn btn--ghost">Retour à l'accueil</a>
       </div>
-
-      <a href="index.html" class="btn btn--primary" id="callback-back" style="display:none;margin-top:22px">Retour à l'accueil</a>
     </div>
   </main>
 

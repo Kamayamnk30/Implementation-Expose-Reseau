@@ -6,7 +6,7 @@ Chapitre 4 du rapport : mise en œuvre d'Auth0 dans UniPortal. Il fait suite au 
 | --- | --- |
 | `Chapitre4_UniPortal.md` | Source du chapitre, lisible directement sur GitHub |
 | `Chapitre4_UniPortal.docx` | Version Word mise en page, à insérer dans le rapport |
-| `images/` | Figures 4.1 à 4.12 : schémas et captures d'écran |
+| `images/` | Figures 4.1 à 4.9 : schémas, captures du site et du script de démonstration |
 | `schemas/schemas.html` | Source des schémas (figures 4.1 à 4.3) |
 | `schemas/export.mjs` | Export des schémas en PNG |
 | `outils/build-docx.cjs` | Génération du `.docx` à partir du Markdown |

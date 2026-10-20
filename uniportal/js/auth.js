@@ -39,8 +39,8 @@ export const ROLES_NAMESPACE = 'https://uniportal.example.com/roles';
 
 /** Roles applicatifs reconnus par UniPortal (§3.5.3, RBAC). */
 export const ROLES = {
-  ETUDIANT: 'etudiant',
-  ENSEIGNANT: 'enseignant',
+  ELEVE: 'eleve',
+  PROFESSEUR: 'professeur',
 };
 
 /* URL construites relativement a la page courante : le projet fonctionne
@@ -256,7 +256,9 @@ export async function getAccessToken() {
 }
 
 /**
- * Decode un JWT sans verifier sa signature (usage pedagogique).
+ * Decode un JWT sans verifier sa signature (outil de diagnostic : l'interface
+ * ne l'utilise pas, mais il permet d'examiner un jeton depuis la console du
+ * navigateur).
  *
  * Un JWT est forme de trois segments Base64URL separes par des points :
  * en-tete . contenu . signature (§3.2.5). Le decodage montre que le contenu
@@ -299,16 +301,19 @@ function base64UrlDecode(segment) {
  *
  * Les roles sont attribues dans Auth0 (User Management > Roles) puis injectes
  * dans les jetons par l'Action post-login sous la claim ROLES_NAMESPACE
- * (§3.3.5). Le role le plus privilegie l'emporte ; a defaut, le moindre
- * privilege s'applique et l'utilisateur est traite en etudiant.
+ * (§3.3.5). Le role le plus privilegie l'emporte. Sans role reconnu, la
+ * fonction renvoie null : l'interface affiche alors un message d'attente
+ * d'activation, et l'API refuserait de toute facon l'acces (moindre
+ * privilege).
  *
  * @param {object} user profil renvoye par getUserProfile()
- * @returns {'etudiant'|'enseignant'}
+ * @returns {'eleve'|'professeur'|null}
  */
 export function getUserRole(user) {
   const roles = (user && Array.isArray(user[ROLES_NAMESPACE])) ? user[ROLES_NAMESPACE] : [];
-  if (roles.includes(ROLES.ENSEIGNANT)) return ROLES.ENSEIGNANT;
-  return ROLES.ETUDIANT;
+  if (roles.includes(ROLES.PROFESSEUR)) return ROLES.PROFESSEUR;
+  if (roles.includes(ROLES.ELEVE)) return ROLES.ELEVE;
+  return null;
 }
 
 /**

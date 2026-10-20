@@ -3,19 +3,25 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tableau de bord - UniPortal</title>
+  <title>Mon espace - UniPortal</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
 </head>
-<!-- is-loading masque le contenu tant que requireAuth() n'a pas confirmé la session -->
+<!--
+  Espace protege. requireAuth() (js/auth.js) renvoie vers l'accueil si aucune
+  session Auth0 n'existe ; la classe is-loading masque le contenu d'ici la.
+  Le role lu dans la claim personnalisee des jetons (RBAC, §3.5.3) choisit la
+  vue : bulletin pour un eleve, saisie pour un professeur. Les donnees
+  viennent de l'API (/api), appelee avec l'access token dans l'en-tete
+  Authorization : c'est l'API qui decide de l'acces (§3.4 etape 6, §3.9).
+-->
 <body data-page="dashboard" class="is-loading">
 
   <div class="bubbles" aria-hidden="true">
     <div class="bubble bubble--1"></div>
     <div class="bubble bubble--2"></div>
-    <div class="bubble bubble--3"></div>
     <div class="bubble bubble--4"></div>
     <div class="bubble bubble--6"></div>
   </div>
@@ -26,71 +32,29 @@
         <span class="logo__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10 12 5 2 10l10 5 10-5Z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/><path d="M22 10v6"/></svg></span>
         <span>Uni<em>Portal</em></span>
       </a>
-      <div class="navbar__actions">
-        <div class="nav-links">
-          <a href="#espace">Mon espace</a>
-          <a href="#console">Console API</a>
-          <a href="#inspecteur">Inspecteur JWT</a>
+
+      <div class="user-menu">
+        <div class="avatar avatar--sm" id="user-avatar"></div>
+        <div class="user-menu__id">
+          <div class="user-menu__name" id="user-name"></div>
+          <div class="user-menu__role" id="user-role"></div>
         </div>
+        <!-- data-action="logout" : logout() vide la session locale puis appelle /v2/logout (§3.7.4) -->
+        <button class="btn btn--ghost btn--sm" data-action="logout" aria-label="Se déconnecter">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>
+          <span class="hide-sm">Déconnexion</span>
+        </button>
       </div>
     </div>
   </header>
 
   <main class="dashboard">
-    <div class="container">
-
-      <!-- En-tête utilisateur -->
-      <section class="card user-bar" aria-label="Utilisateur connecté">
-        <div class="user-bar__identity">
-          <div class="avatar" id="user-avatar"></div>
-          <div style="min-width:0">
-            <div class="user-bar__name" id="user-name"></div>
-            <div class="user-bar__email" id="user-email"></div>
-            <span class="role-pill" id="user-role"></span>
-          </div>
-        </div>
-        <button class="btn btn--ghost btn--sm" data-action="logout">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>
-          Se déconnecter
-        </button>
-      </section>
-
-      <!-- Vue conditionnelle selon le rôle (§3.5.3), remplie par app.js -->
-      <section class="card panel" id="espace" style="margin-top:24px"></section>
-
-      <!-- Console API : requêtes réelles vers le backend (§3.4, étape 6) -->
-      <section class="card panel" id="console">
-        <div class="panel__head">
-          <div>
-            <span class="eyebrow">Démonstration réseau</span>
-            <h2>Console API</h2>
-            <p>Chaque scénario envoie une vraie requête HTTP à l'API, qui valide le jeton puis applique les droits.</p>
-          </div>
-        </div>
-        <div class="scenarios" id="api-scenarios"></div>
-        <div id="api-result"></div>
-      </section>
-
-      <!-- Inspecteur JWT (§3.2.5, §3.6.1, §3.6.2) -->
-      <section class="card panel" id="inspecteur">
-        <div class="panel__head">
-          <div>
-            <span class="eyebrow">Panneau pédagogique</span>
-            <h2>Inspecteur JWT</h2>
-            <p>Décodage local, sans vérification de signature : lisible ne veut pas dire fiable (§3.6.2).</p>
-          </div>
-          <div class="tabs" role="tablist" aria-label="Jeton à inspecter">
-            <button class="tab is-active" role="tab" aria-selected="true" data-token="id">ID token</button>
-            <button class="tab" role="tab" aria-selected="false" data-token="access">Access token</button>
-          </div>
-        </div>
-
-        <p class="muted-note" id="jwt-purpose" style="margin:-6px 0 16px"></p>
-        <div id="jwt-content"></div>
-      </section>
-
-    </div>
+    <div class="container" id="espace"></div>
   </main>
+
+  <footer class="footer footer--compact">
+    <div class="container">UniPortal - Plateforme de consultation des résultats scolaires</div>
+  </footer>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
