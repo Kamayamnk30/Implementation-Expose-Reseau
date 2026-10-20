@@ -112,11 +112,20 @@ export function createVerifier({ domain, audience, leeway = 60 }) {
    * Un kid inconnu peut signifier une rotation de cle cote Auth0 : on
    * retelecharge alors le JWKS, en limitant la frequence pour qu'un
    * attaquant ne puisse pas faire marteler le tenant avec des kid inventes.
+   * Si le tenant est injoignable mais que la cle est deja connue, on continue
+   * avec la copie en cache : les jetons deja emis restent verifiables (§3.7.6).
    */
   async function getKey(kid) {
     const expired = Date.now() - fetchedAt > JWKS_CACHE_TTL;
     const canRefresh = Date.now() - fetchedAt > JWKS_MIN_REFRESH;
-    if (expired || (!keys.has(kid) && canRefresh)) await loadKeys();
+    if (expired || (!keys.has(kid) && canRefresh)) {
+      try {
+        await loadKeys();
+      } catch (e) {
+        if (!keys.has(kid)) throw e;
+        console.warn(`[api] ${e.message} Cle "${kid}" reprise du cache.`);
+      }
+    }
     return keys.get(kid);
   }
 
