@@ -245,6 +245,48 @@ En production, on confierait ces contrôles à une bibliothèque éprouvée (`jo
 
 ---
 
+## Mise en ligne sur Render
+
+Render exécute `npm start` tel quel : frontend, API, console et synchronisation des notes fonctionnent comme en local, avec un certificat HTTPS fourni automatiquement. Le fichier `render.yaml`, à la racine du dépôt, décrit le service.
+
+### 1. Préparer le dépôt
+
+Renseignez `domain` et `clientId` dans `js/auth.js`, puis poussez sur la branche `main`. Ces deux valeurs sont des identifiants publics : elles peuvent figurer dans le dépôt. Aucun secret n'est nécessaire.
+
+### 2. Créer le service
+
+1. Créez un compte sur [render.com](https://render.com) et connectez votre compte GitHub.
+2. **New > Blueprint**, choisissez le dépôt `Implementation-Expose-Reseau`, puis **Apply**.
+3. Render lit `render.yaml`, installe et démarre le service. Au bout d'une à deux minutes, l'adresse publique s'affiche, par exemple `https://uniportal.onrender.com`.
+
+Sans Blueprint, l'équivalent manuel est : **New > Web Service**, *Root Directory* `uniportal`, *Build Command* `npm install`, *Start Command* `npm start`, *Health Check Path* `/api/sante`.
+
+### 3. Déclarer l'adresse dans Auth0
+
+Dans **Applications > UniPortal > Settings**, ajoutez l'adresse Render à la suite des valeurs locales, séparées par des virgules :
+
+| Champ | Valeur à ajouter |
+| --- | --- |
+| Allowed Callback URLs | `https://uniportal.onrender.com/callback.html` |
+| Allowed Logout URLs | `https://uniportal.onrender.com/index.html` |
+| Allowed Web Origins | `https://uniportal.onrender.com` |
+| Allowed Origins (CORS) | `https://uniportal.onrender.com` |
+
+Remplacez `uniportal` par le nom réellement attribué par Render, puis enregistrez.
+
+### 4. Vérifier
+
+- `https://<votre-service>.onrender.com/api/sante` doit renvoyer `{"status":"ok", ...}` avec le bon émetteur.
+- La connexion doit ramener sur `callback.html`, puis sur le tableau de bord avec la pastille « Données servies par l'API ».
+
+### Points d'attention
+
+- **Mise en veille :** l'offre gratuite endort le service après une quinzaine de minutes sans trafic. La première requête suivante prend alors environ une minute. Ouvrez le site quelques minutes avant l'exposé.
+- **Données :** les notes sont en mémoire et sont réinitialisées à chaque redémarrage ou mise en veille.
+- **Autre hébergeur :** Railway convient aussi. Créez un projet depuis le dépôt et réglez le *Root Directory* sur `uniportal` ; la commande `npm start` est détectée automatiquement.
+
+---
+
 ## Démonstration conseillée
 
 1. Ouvrir les outils de développement, onglet **Réseau**, avec l'option « Conserver le journal ».

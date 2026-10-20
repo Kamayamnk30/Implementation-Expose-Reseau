@@ -705,6 +705,8 @@ Le serveur écoute sur `http://localhost:8080`. Il lit le domaine et l'audience 
 
 Il faut utiliser `localhost` et non `127.0.0.1` : Auth0 considère ces deux origines comme différentes.
 
+**Mise en ligne.** Le fichier `render.yaml` permet de publier l'application sur Render, qui exécute `npm start` sans modification et fournit le HTTPS. L'adresse publique obtenue, par exemple `https://uniportal.onrender.com`, doit être ajoutée aux URL autorisées de l'application Auth0 (§4.3.1). L'offre gratuite met le service en veille après une période d'inactivité et réinitialise alors les données en mémoire. La procédure détaillée figure dans le `README.md`.
+
 ## Annexe B - Référence de l'API
 
 **Requête type.**

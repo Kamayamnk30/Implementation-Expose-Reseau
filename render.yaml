@@ -1,0 +1,15 @@
+# Blueprint Render : deploie UniPortal (frontend + API) comme service web Node.
+# Render termine le HTTPS et transmet les requetes au port fourni dans $PORT,
+# que server/server.js lit deja. Guide : uniportal/README.md, "Mise en ligne".
+services:
+  - type: web
+    name: uniportal
+    runtime: node
+    plan: free
+    rootDir: uniportal
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/sante
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
