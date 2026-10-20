@@ -2,7 +2,9 @@
 
 Plateforme universitaire de consultation de notes, construite pour illustrer le **chapitre 3 de l'exposé d'administration réseau : présentation générale d'Auth0**.
 
-Le projet est entièrement statique (HTML, CSS, JavaScript vanilla). L'authentification repose sur Auth0 avec le flux **Authorization Code + PKCE** (OAuth 2.0 / OpenID Connect), des **JWT** signés et un contrôle d'accès par **rôles (RBAC)**.
+Le frontend est en HTML, CSS et JavaScript vanilla. L'authentification repose sur Auth0 avec le flux **Authorization Code + PKCE** (OAuth 2.0 / OpenID Connect), des **JWT** signés et un contrôle d'accès par **rôles (RBAC)**.
+
+Un backend Node.js léger, sans aucune dépendance, joue le rôle de l'API métier : il valide chaque access token (signature, émetteur, audience, expiration) puis applique les droits. Il rend l'étape 6 du §3.4 démontrable en direct.
 
 ```
 uniportal/
@@ -11,7 +13,12 @@ uniportal/
 ├── dashboard.html    Espace protégé : vue étudiant / enseignant + inspecteur JWT
 ├── css/style.css     Styles globaux (mobile-first)
 ├── js/auth.js        Module Auth0 (SDK, login, logout, jetons, rôles)
-├── js/app.js         Logique applicative des trois pages
+├── js/app.js         Logique applicative des trois pages, console API
+├── server/
+│   ├── server.js     Serveur HTTP : fichiers du frontend + routes /api
+│   ├── jwt.js        Validation des access tokens (JWKS, RS256, iss, aud, exp)
+│   └── data.js       Données de démonstration en mémoire
+├── package.json      Script npm start (aucune dépendance à installer)
 └── README.md         Ce guide
 ```
 
@@ -29,6 +36,9 @@ uniportal/
 | Endpoints /authorize, /oauth/token, /v2/logout | §3.7.4 |
 | Messages d'erreur du callback | §3.7.7, §3.9 |
 | Vues étudiant / enseignant | §3.9 |
+| Validation du jeton par l'API (server/jwt.js) | §3.4 étape 6, §3.6.2 |
+| Codes 401 / 403 de la console API | §3.9, tableau de dépannage |
+| Téléchargement des clés publiques (JWKS) | §3.7.3, flux API vers métadonnées |
 
 ---
 
@@ -136,6 +146,9 @@ exports.onExecutePostLogin = async (event, api) => {
 
   // Access token : lu par l'API metier pour autoriser ou refuser (§3.4, etape 6)
   api.accessToken.setCustomClaim(namespace, roles);
+
+  // Facultatif : nom affiche par l'API dans la liste des etudiants de l'enseignant
+  api.accessToken.setCustomClaim('https://uniportal.example.com/name', event.user.name);
 };
 ```
 
@@ -145,7 +158,22 @@ Une Action s'exécute au milieu du flux de connexion : un code lent ou qui appel
 
 Les modules ES et Auth0 imposent de servir les fichiers en HTTP : ouvrir `index.html` directement depuis le disque (`file://`) ne fonctionne pas.
 
-Avec Python (aucune installation) :
+**Recommandé : frontend + API** (Node.js 18 ou plus, rien à installer) :
+
+```bash
+cd uniportal
+npm start
+```
+
+Le serveur écoute sur `http://localhost:8080`, sert les pages et expose `/api`. Il lit le domaine du tenant et l'audience directement dans `js/auth.js` : la configuration se fait à un seul endroit. Pour les surcharger :
+
+```bash
+AUTH0_DOMAIN=uniportal-demo.eu.auth0.com AUTH0_AUDIENCE=https://api.uniportal.example.com PORT=8080 npm start
+```
+
+**Frontend seul**, sans API : le tableau de bord bascule alors sur des données locales et la console API est désactivée.
+
+Avec Python :
 
 ```bash
 cd uniportal
@@ -164,14 +192,69 @@ Ouvrez ensuite `http://localhost:8080`. Utilisez `localhost` et non `127.0.0.1` 
 
 ---
 
+## L'API de validation
+
+### Routes
+
+| Méthode et route | Accès | Démontre |
+| --- | --- | --- |
+| `GET /api/sante` | Public | Détection de l'API par le frontend |
+| `GET /api/notes/me` | Rôle `etudiant` | Fiche retrouvée par la claim `sub` |
+| `GET /api/etudiants/:id/notes` | Propriétaire ou `enseignant` | Modification d'URL refusée (§3.9) |
+| `GET /api/cours/:code/etudiants` | `enseignant` affecté au cours | Autorisation fine (§3.5.3) |
+| `PUT /api/cours/:code/notes/:id` | `enseignant` affecté au cours | Saisie revalidée côté serveur |
+
+Dans la démonstration, tout enseignant est affecté au cours `RES301`. Chaque étudiant reçoit une fiche à sa première connexion.
+
+### Contrôles appliqués à chaque requête
+
+`server/jwt.js` applique, dans l'ordre, les contrôles du §3.6.2 :
+
+1. **Format** : trois segments Base64URL.
+2. **Algorithme** : seul `RS256` est accepté ; `none` et `HS256` sont refusés.
+3. **Signature** : vérifiée avec la clé publique du tenant, téléchargée depuis `https://<tenant>/.well-known/jwks.json` et gardée en cache 10 minutes.
+4. **Émetteur** : `iss` doit valoir `https://<tenant>/`.
+5. **Audience** : `aud` doit contenir l'identifiant de l'API, ce qui exclut l'ID token.
+6. **Expiration** : `exp` (et `nbf`), avec une tolérance de 60 s pour les écarts d'horloge.
+
+Viennent ensuite les contrôles métier : rôle, propriété de la fiche, affectation au cours. Chaque réponse renvoie la liste `checks` des contrôles effectués, affichée par la console API.
+
+| Réponse | Signification |
+| --- | --- |
+| `200` | Jeton valide et action autorisée |
+| `401` + `WWW-Authenticate` | Jeton absent, falsifié, expiré, mauvais émetteur ou mauvaise audience |
+| `403` | Jeton valide mais rôle, propriété ou affectation insuffisants |
+| `502` | Clés publiques du tenant injoignables : DNS, proxy ou pare-feu sortant |
+
+Le terminal du serveur journalise chaque requête (méthode, route, statut, durée), jamais le jeton (§3.5.5).
+
+### Console API
+
+Le tableau de bord propose six scénarios qui envoient de vraies requêtes :
+
+| Scénario | Résultat attendu |
+| --- | --- |
+| Requête légitime | 200 |
+| Sans jeton | 401 |
+| Jeton falsifié : rôles modifiés, signature d'origine conservée | 401, signature invalide |
+| ID token envoyé à la place de l'access token | 401, mauvaise audience |
+| Fiche d'un autre étudiant, ou cours non affecté pour un enseignant | 403 |
+| Action réservée à l'autre rôle | 403 |
+
+En production, on confierait ces contrôles à une bibliothèque éprouvée (`jose`, `express-oauth2-jwt-bearer`) ; le code est écrit à la main ici pour que chaque contrôle reste visible.
+
+---
+
 ## Démonstration conseillée
 
 1. Ouvrir les outils de développement, onglet **Réseau**, avec l'option « Conserver le journal ».
 2. Cliquer sur **Se connecter** : observer `GET /authorize` et ses paramètres `code_challenge`, `state` et `nonce`.
 3. Se connecter : observer la redirection `302` vers `callback.html?code=...&state=...`, puis `POST /oauth/token` avec `code_verifier`.
 4. Sur le tableau de bord, comparer l'ID token et l'access token dans l'inspecteur JWT : `aud` diffère, et la claim des rôles est présente dans les deux.
-5. Changer le rôle de l'utilisateur dans Auth0, se déconnecter puis se reconnecter : la vue change.
-6. Montrer **Monitoring > Logs** dans le tableau de bord Auth0 (§3.5.5).
+5. Dans la console API, rejouer les six scénarios en commentant le contrôle qui échoue. Le scénario « Jeton falsifié » montre qu'un jeton lisible n'est pas un jeton fiable.
+6. Ouvrir un second navigateur (ou une fenêtre privée) avec un compte enseignant, saisir une note, puis recharger la page de l'étudiant : la note est servie par l'API.
+7. Changer le rôle de l'utilisateur dans Auth0, se déconnecter puis se reconnecter : la vue change.
+8. Montrer **Monitoring > Logs** dans le tableau de bord Auth0 et le journal du terminal (§3.5.5).
 
 ## Dépannage
 
@@ -183,7 +266,11 @@ Ouvrez ensuite `http://localhost:8080`. Utilisez `localhost` et non `127.0.0.1` 
 | Rôle toujours « Étudiant » | Action non attachée ou rôle non assigné | Étapes 7 et 8, puis se reconnecter |
 | Access token « opaque » dans l'inspecteur | Audience absente ou incorrecte | Étape 6, valeur `audience` |
 | `Invalid state` au callback | Page rechargée ou transaction expirée | Relancer la connexion depuis l'accueil |
+| « Mode local : API non démarrée » | Site servi par Python ou live-server | Lancer `npm start` et ouvrir le site depuis ce serveur |
+| 403 sur toutes les routes de l'API | Aucun rôle dans l'access token | Étapes 7 et 8 ; l'Action doit écrire dans `api.accessToken` |
+| 401 « audience » sur une requête légitime | `audience` différente entre Auth0 et `js/auth.js` | Étape 6, puis se reconnecter |
+| 502 côté API | Le serveur ne joint pas le JWKS du tenant | DNS et HTTPS sortant depuis la machine du serveur (§3.7.3) |
 
 ## Limites de la démonstration
 
-Les notes sont fictives et stockées en mémoire dans le navigateur. Le contrôle des rôles côté interface n'est qu'un confort d'affichage : dans une vraie plateforme, chaque lecture ou saisie de note passerait par une API qui valide l'access token (signature, `iss`, `aud`, `exp`) et vérifie que l'utilisateur a le droit d'accéder à la ressource demandée (§3.1.4, §3.9).
+Les notes sont fictives et stockées en mémoire par le serveur : elles sont perdues à son arrêt. Le serveur écoute en HTTP sur `localhost`, ce qui convient à une démonstration locale ; en production, il serait placé derrière HTTPS (§3.7.2). Le contrôle des rôles côté interface n'est qu'un confort d'affichage : la décision appartient à l'API, qui valide l'access token et vérifie que l'utilisateur a le droit d'accéder à la ressource demandée (§3.1.4, §3.9).

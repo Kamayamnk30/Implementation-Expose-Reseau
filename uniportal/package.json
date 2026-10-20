@@ -1,0 +1,13 @@
+{
+  "name": "uniportal",
+  "version": "1.0.0",
+  "description": "Démonstration Auth0 pour l'exposé d'administration réseau (chapitre 3) : frontend vanilla et API de validation des jetons.",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server/server.js"
+  }
+}

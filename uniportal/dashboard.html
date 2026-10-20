@@ -29,6 +29,7 @@
       <div class="navbar__actions">
         <div class="nav-links">
           <a href="#espace">Mon espace</a>
+          <a href="#console">Console API</a>
           <a href="#inspecteur">Inspecteur JWT</a>
         </div>
       </div>
@@ -56,6 +57,19 @@
 
       <!-- Vue conditionnelle selon le rôle (§3.5.3), remplie par app.js -->
       <section class="card panel" id="espace" style="margin-top:24px"></section>
+
+      <!-- Console API : requêtes réelles vers le backend (§3.4, étape 6) -->
+      <section class="card panel" id="console">
+        <div class="panel__head">
+          <div>
+            <span class="eyebrow">Démonstration réseau</span>
+            <h2>Console API</h2>
+            <p>Chaque scénario envoie une vraie requête HTTP à l'API, qui valide le jeton puis applique les droits.</p>
+          </div>
+        </div>
+        <div class="scenarios" id="api-scenarios"></div>
+        <div id="api-result"></div>
+      </section>
 
       <!-- Inspecteur JWT (§3.2.5, §3.6.1, §3.6.2) -->
       <section class="card panel" id="inspecteur">

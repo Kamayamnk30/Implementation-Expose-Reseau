@@ -7,10 +7,10 @@
  *   - callback  : traitement du retour Auth0
  *   - dashboard : page protegee, vue par role et inspecteur JWT
  *
- * Les donnees de notes sont fictives et stockees en memoire. Dans une vraie
- * plateforme, elles seraient servies par une API metier qui valide l'access
- * token et verifie, a chaque requete, que l'utilisateur a le droit de voir ou
- * modifier la ressource demandee (§3.9).
+ * Les notes sont servies par l'API metier du dossier server/ (npm start) :
+ * elle valide l'access token et verifie, a chaque requete, que l'utilisateur
+ * a le droit de voir ou modifier la ressource demandee (§3.9). Sans backend,
+ * le tableau de bord bascule sur des donnees locales.
  */
 
 import {
@@ -84,11 +84,56 @@ function formatGrade(note) {
 }
 
 /* ==========================================================================
-   Donnees fictives (remplacent les reponses de l'API metier)
+   Acces aux donnees : API metier ou mode local
+   Si le backend (npm start) repond, toutes les donnees viennent de /api et
+   chaque requete porte l'access token. Sinon, par exemple avec un simple
+   python -m http.server, le tableau de bord bascule sur des donnees locales.
    ========================================================================== */
 
-/** Notes de l'etudiant connecte : GET /api/notes/me (§3.4, etape 6). */
-const STUDENT_GRADES = [
+/** true lorsque l'API repond sur /api/sante. */
+let apiMode = false;
+
+/**
+ * Envoie une requete a l'API metier.
+ *
+ * Cote reseau : requete HTTP vers la meme origine ; l'access token part dans
+ * l'en-tete "Authorization: Bearer <token>" (§3.4, etape 6). L'API le valide
+ * puis repond 200, 401 ou 403.
+ *
+ * @param {string} path chemin, par exemple /api/notes/me
+ * @param {object} [options]
+ * @param {string} [options.method='GET']
+ * @param {object} [options.body] corps JSON
+ * @param {string|null} [options.token] jeton a envoyer ; null pour n'en envoyer aucun ;
+ *   par defaut, l'access token courant
+ * @returns {Promise<{status: number, ok: boolean, data: object, headers: Headers}>}
+ */
+async function apiRequest(path, { method = 'GET', body, token } = {}) {
+  const headers = { Accept: 'application/json' };
+  const bearer = token === undefined ? await getAccessToken() : token;
+  if (bearer) headers.Authorization = `Bearer ${bearer}`;
+  if (body !== undefined) headers['Content-Type'] = 'application/json';
+
+  const response = await fetch(path, { method, headers, body: body !== undefined ? JSON.stringify(body) : undefined });
+  let data = {};
+  try { data = await response.json(); } catch { /* reponse sans corps JSON */ }
+  return { status: response.status, ok: response.ok, data, headers: response.headers };
+}
+
+/** Detecte la presence de l'API (route publique, sans jeton). */
+async function detectApi() {
+  try {
+    const res = await fetch('/api/sante', { headers: { Accept: 'application/json' } });
+    const data = await res.json();
+    return res.ok && data.status === 'ok';
+  } catch {
+    return false;
+  }
+}
+
+/* Donnees locales, au meme format que les reponses de l'API. */
+
+const LOCAL_COURSES = [
   { code: 'RES301', matiere: 'Administration réseau', enseignant: 'M. Diallo', coef: 4, note: 15.5 },
   { code: 'SEC302', matiere: 'Sécurité des systèmes', enseignant: 'Mme Nguyen', coef: 3, note: 13.25 },
   { code: 'WEB303', matiere: 'Développement web', enseignant: 'M. Martin', coef: 3, note: 16 },
@@ -97,16 +142,51 @@ const STUDENT_GRADES = [
   { code: 'ANG306', matiere: 'Anglais technique', enseignant: 'Mme Smith', coef: 1, note: null },
 ];
 
-/** Etudiants du cours de l'enseignant : GET /api/cours/RES301/etudiants. */
-const TEACHER_COURSE = { code: 'RES301', intitule: 'Administration réseau' };
-const COURSE_STUDENTS = [
-  { id: 'E2024-014', nom: 'Awa Traoré', groupe: 'TD1', note: 15.5 },
-  { id: 'E2024-027', nom: 'Lucas Petit', groupe: 'TD1', note: 12 },
-  { id: 'E2024-031', nom: 'Inès Benali', groupe: 'TD2', note: null },
-  { id: 'E2024-042', nom: 'Moussa Keita', groupe: 'TD2', note: 9.5 },
-  { id: 'E2024-058', nom: 'Chloé Laurent', groupe: 'TD1', note: null },
-  { id: 'E2024-063', nom: 'Yann Mbappe', groupe: 'TD2', note: 17.25 },
-];
+const LOCAL_ROSTER = {
+  cours: { code: 'RES301', matiere: 'Administration réseau' },
+  etudiants: [
+    { id: 'E2024-014', nom: 'Awa Traoré', groupe: 'TD1', note: 15.5 },
+    { id: 'E2024-027', nom: 'Lucas Petit', groupe: 'TD1', note: 12 },
+    { id: 'E2024-031', nom: 'Inès Benali', groupe: 'TD2', note: null },
+    { id: 'E2024-042', nom: 'Moussa Keita', groupe: 'TD2', note: 9.5 },
+    { id: 'E2024-063', nom: 'Yann Mbappe', groupe: 'TD2', note: 17.25 },
+  ],
+};
+
+function localTranscript() {
+  const graded = LOCAL_COURSES.filter((c) => c.note !== null);
+  const totalCoef = graded.reduce((sum, c) => sum + c.coef, 0);
+  return {
+    etudiant: { id: 'E2024-014' },
+    moyenne: totalCoef ? graded.reduce((sum, c) => sum + c.note * c.coef, 0) / totalCoef : null,
+    notes: LOCAL_COURSES,
+  };
+}
+
+/**
+ * Source de donnees du tableau de bord. Chaque methode renvoie
+ * { ok, data } ou { ok: false, status, message } en cas de refus de l'API.
+ */
+const dataSource = {
+  async transcript() {
+    if (!apiMode) return { ok: true, data: localTranscript() };
+    const res = await apiRequest('/api/notes/me');
+    return res.ok ? { ok: true, data: res.data } : { ok: false, status: res.status, message: res.data.message };
+  },
+  async roster(code) {
+    if (!apiMode) return { ok: true, data: LOCAL_ROSTER };
+    const res = await apiRequest(`/api/cours/${code}/etudiants`);
+    return res.ok ? { ok: true, data: res.data } : { ok: false, status: res.status, message: res.data.message };
+  },
+  async saveGrade(code, studentId, note) {
+    if (!apiMode) {
+      LOCAL_ROSTER.etudiants.find((s) => s.id === studentId).note = note;
+      return { ok: true };
+    }
+    const res = await apiRequest(`/api/cours/${code}/notes/${studentId}`, { method: 'PUT', body: { note } });
+    return res.ok ? { ok: true } : { ok: false, status: res.status, message: res.data.message };
+  },
+};
 
 /* ==========================================================================
    Page d'accueil
@@ -198,6 +278,9 @@ async function initCallback() {
    Tableau de bord
    ========================================================================== */
 
+/** Cours affecte a l'enseignant dans la demonstration. */
+const TEACHER_COURSE = 'RES301';
+
 async function initDashboard() {
   if (!isConfigured()) {
     window.location.replace('index.html');
@@ -206,14 +289,16 @@ async function initDashboard() {
 
   const user = await requireAuth();
   const role = getUserRole(user);
+  apiMode = await detectApi();
 
   renderUserBar(user, role);
-  if (role === ROLES.ENSEIGNANT) renderTeacherView();
-  else renderStudentView();
-
   document.querySelector('[data-action="logout"]').addEventListener('click', () => logout());
-
   document.body.classList.remove('is-loading');
+
+  if (role === ROLES.ENSEIGNANT) await renderTeacherView();
+  else await renderStudentView();
+
+  initApiConsole(role);
   await initJwtInspector();
 }
 
@@ -242,14 +327,40 @@ function initials(name) {
   return name.split(/[\s@.]+/).filter(Boolean).slice(0, 2).map((p) => p[0].toUpperCase()).join('');
 }
 
-/** Vue etudiant : tableau des notes et moyenne ponderee. */
-function renderStudentView() {
-  const graded = STUDENT_GRADES.filter((g) => g.note !== null);
-  const totalCoef = graded.reduce((sum, g) => sum + g.coef, 0);
-  const moyenne = totalCoef ? graded.reduce((sum, g) => sum + g.note * g.coef, 0) / totalCoef : null;
-  const valides = graded.filter((g) => g.note >= 10).length;
+/** Pastille indiquant l'origine des donnees affichees. */
+function sourcePill() {
+  return apiMode
+    ? '<span class="source-pill source-pill--api">Données servies par l\'API, jeton vérifié</span>'
+    : '<span class="source-pill">Mode local : API non démarrée (npm start)</span>';
+}
 
-  const rows = STUDENT_GRADES.map((g) => `
+/** Message affiche lorsque l'API refuse la requete. */
+function renderApiRefusal(container, eyebrow, result) {
+  const hint = result.status === 403
+    ? 'Le jeton est valide mais ne porte pas le rôle requis : assignez un rôle dans Auth0 (README, étape 7), vérifiez l\'Action post-login, puis reconnectez-vous.'
+    : 'Consultez la console API ci-dessous et les journaux du serveur (§3.7.7).';
+  container.innerHTML = `
+    <div class="panel__head">
+      <div>
+        <span class="eyebrow">${escapeHtml(eyebrow)}</span>
+        <h2>Accès refusé par l'API</h2>
+        <p>${sourcePill()}</p>
+      </div>
+    </div>
+    <div class="empty-state"><strong>HTTP ${result.status}</strong> - ${escapeHtml(result.message || 'Requête refusée.')}<br>${escapeHtml(hint)}</div>`;
+}
+
+/** Vue etudiant : tableau des notes et moyenne ponderee. */
+async function renderStudentView() {
+  const container = document.getElementById('espace');
+  const result = await dataSource.transcript();
+  if (!result.ok) return renderApiRefusal(container, 'Espace étudiant', result);
+
+  const { etudiant, moyenne, notes } = result.data;
+  const graded = notes.filter((n) => n.note !== null);
+  const valides = graded.filter((n) => n.note >= 10).length;
+
+  const rows = notes.map((g) => `
     <tr>
       <td><strong>${escapeHtml(g.code)}</strong></td>
       <td>${escapeHtml(g.matiere)}</td>
@@ -258,20 +369,21 @@ function renderStudentView() {
       <td class="num"><span class="grade ${gradeClass(g.note)}">${formatGrade(g.note)}</span></td>
     </tr>`).join('');
 
-  document.getElementById('espace').innerHTML = `
+  container.innerHTML = `
     <div class="panel__head">
       <div>
-        <span class="eyebrow">Espace étudiant</span>
+        <span class="eyebrow">Espace étudiant - ${escapeHtml(etudiant.id)}</span>
         <h2>Mes notes - Semestre 5</h2>
-        <p>Seules vos propres notes sont affichées : l'API filtre par la claim <code>sub</code> du jeton.</p>
+        <p>Seules vos propres notes sont renvoyées : l'API retrouve votre fiche grâce à la claim <code>sub</code> du jeton.</p>
       </div>
+      ${sourcePill()}
     </div>
 
     <div class="stats">
       <div class="stat"><div class="stat__label">Moyenne</div><div class="stat__value">${formatGrade(moyenne)}</div></div>
-      <div class="stat"><div class="stat__label">Matières</div><div class="stat__value">${STUDENT_GRADES.length}</div></div>
+      <div class="stat"><div class="stat__label">Matières</div><div class="stat__value">${notes.length}</div></div>
       <div class="stat"><div class="stat__label">Validées</div><div class="stat__value">${valides}</div></div>
-      <div class="stat"><div class="stat__label">En attente</div><div class="stat__value">${STUDENT_GRADES.length - graded.length}</div></div>
+      <div class="stat"><div class="stat__label">En attente</div><div class="stat__value">${notes.length - graded.length}</div></div>
     </div>
 
     <div class="table-wrap">
@@ -283,77 +395,86 @@ function renderStudentView() {
       </table>
     </div>
 
-    <p class="muted-note">Données fictives. En production, si un étudiant remplaçait son identifiant dans l'URL, l'API
-    devrait refuser la requête (403), même avec un jeton valide (§3.9).</p>`;
+    <p class="muted-note">Si vous remplacez votre numéro par celui d'un autre étudiant dans l'URL de l'API, la requête
+    est refusée (403) même avec un jeton valide : essayez-le dans la console API (§3.9).</p>`;
 }
 
 /** Vue enseignant : liste des etudiants du cours et saisie de notes. */
-function renderTeacherView() {
+async function renderTeacherView() {
   const container = document.getElementById('espace');
+  const result = await dataSource.roster(TEACHER_COURSE);
+  if (!result.ok) return renderApiRefusal(container, 'Espace enseignant', result);
 
-  const render = () => {
-    const saisies = COURSE_STUDENTS.filter((s) => s.note !== null).length;
-    const rows = COURSE_STUDENTS.map((s, i) => `
-      <tr>
-        <td><strong>${escapeHtml(s.id)}</strong></td>
-        <td>${escapeHtml(s.nom)}</td>
-        <td>${escapeHtml(s.groupe)}</td>
-        <td class="num"><span class="grade ${gradeClass(s.note)}">${formatGrade(s.note)}</span></td>
-        <td>
-          <form class="grade-form" data-index="${i}">
-            <label class="field">
-              <span class="sr-only">Note de ${escapeHtml(s.nom)}</span>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-              <input type="number" name="note" min="0" max="20" step="0.25" placeholder="/20" required>
-            </label>
-            <button class="btn btn--primary btn--sm" type="submit">Saisir</button>
-          </form>
-        </td>
-      </tr>`).join('');
+  const { cours, etudiants } = result.data;
+  const saisies = etudiants.filter((s) => s.note !== null).length;
+  const groupes = new Set(etudiants.map((s) => s.groupe)).size;
 
-    container.innerHTML = `
-      <div class="panel__head">
-        <div>
-          <span class="eyebrow">Espace enseignant</span>
-          <h2>${escapeHtml(TEACHER_COURSE.code)} - ${escapeHtml(TEACHER_COURSE.intitule)}</h2>
-          <p>Le rôle « enseignant » reçu dans le jeton débloque la saisie pour les cours qui vous sont affectés.</p>
-        </div>
+  const rows = etudiants.map((s) => `
+    <tr>
+      <td><strong>${escapeHtml(s.id)}</strong></td>
+      <td>${escapeHtml(s.nom)}</td>
+      <td>${escapeHtml(s.groupe)}</td>
+      <td class="num"><span class="grade ${gradeClass(s.note)}">${formatGrade(s.note)}</span></td>
+      <td>
+        <form class="grade-form" data-id="${escapeHtml(s.id)}" data-nom="${escapeHtml(s.nom)}">
+          <label class="field">
+            <span class="sr-only">Note de ${escapeHtml(s.nom)}</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+            <input type="number" name="note" min="0" max="20" step="0.25" placeholder="/20" required>
+          </label>
+          <button class="btn btn--primary btn--sm" type="submit">Saisir</button>
+        </form>
+      </td>
+    </tr>`).join('');
+
+  container.innerHTML = `
+    <div class="panel__head">
+      <div>
+        <span class="eyebrow">Espace enseignant</span>
+        <h2>${escapeHtml(cours.code)} - ${escapeHtml(cours.matiere)}</h2>
+        <p>Le rôle « enseignant » et l'affectation au cours sont vérifiés par l'API à chaque lecture et à chaque saisie.</p>
       </div>
+      ${sourcePill()}
+    </div>
 
-      <div class="stats">
-        <div class="stat"><div class="stat__label">Étudiants</div><div class="stat__value">${COURSE_STUDENTS.length}</div></div>
-        <div class="stat"><div class="stat__label">Notes saisies</div><div class="stat__value">${saisies}</div></div>
-        <div class="stat"><div class="stat__label">À saisir</div><div class="stat__value">${COURSE_STUDENTS.length - saisies}</div></div>
-        <div class="stat"><div class="stat__label">Groupes</div><div class="stat__value">2</div></div>
-      </div>
+    <div class="stats">
+      <div class="stat"><div class="stat__label">Étudiants</div><div class="stat__value">${etudiants.length}</div></div>
+      <div class="stat"><div class="stat__label">Notes saisies</div><div class="stat__value">${saisies}</div></div>
+      <div class="stat"><div class="stat__label">À saisir</div><div class="stat__value">${etudiants.length - saisies}</div></div>
+      <div class="stat"><div class="stat__label">Groupes</div><div class="stat__value">${groupes}</div></div>
+    </div>
 
-      <div class="table-wrap">
-        <table class="table">
-          <thead>
-            <tr><th>N° étudiant</th><th>Nom</th><th>Groupe</th><th class="num">Note</th><th class="num">Saisie</th></tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr><th>N° étudiant</th><th>Nom</th><th>Groupe</th><th class="num">Note</th><th class="num">Saisie</th></tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
 
-      <p class="muted-note">Simulation : la note est enregistrée en mémoire. En production, l'appel
-      PUT /api/cours/${escapeHtml(TEACHER_COURSE.code)}/notes porterait l'access token ; l'API vérifierait le rôle et
-      l'affectation au cours avant d'écrire (§3.5.3, §3.9).</p>`;
+    <p class="muted-note">${apiMode
+      ? `Chaque saisie envoie PUT /api/cours/${escapeHtml(cours.code)}/notes/&lt;numéro&gt; avec l'access token. Un étudiant connecté dans un autre navigateur voit la note après rechargement.`
+      : 'Mode local : la note est enregistrée en mémoire dans ce navigateur uniquement.'}</p>`;
 
-    container.querySelectorAll('.grade-form').forEach((form) => {
-      form.addEventListener('submit', (event) => {
-        event.preventDefault();
-        const index = Number(form.dataset.index);
-        const value = Number(form.elements.note.value);
-        if (Number.isNaN(value) || value < 0 || value > 20) return;
-        COURSE_STUDENTS[index].note = value;
-        showToast(`Note de ${COURSE_STUDENTS[index].nom} enregistrée : ${formatGrade(value)} / 20`);
-        render();
-      });
+  container.querySelectorAll('.grade-form').forEach((form) => {
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const value = Number(form.elements.note.value);
+      if (Number.isNaN(value) || value < 0 || value > 20) return;
+
+      const button = form.querySelector('button');
+      button.disabled = true;
+      const saved = await dataSource.saveGrade(cours.code, form.dataset.id, value);
+      if (saved.ok) {
+        showToast(`Note de ${form.dataset.nom} enregistrée : ${formatGrade(value)} / 20`);
+        await renderTeacherView();
+      } else {
+        button.disabled = false;
+        showToast(`Refus de l'API (${saved.status}) : ${saved.message}`);
+      }
     });
-  };
-
-  render();
+  });
 }
 
 /* ==========================================================================
@@ -542,6 +663,183 @@ function startExpiryIndicator(payload) {
 
   tick();
   expiryTimer = setInterval(tick, 1000);
+}
+
+/* ==========================================================================
+   Console API
+   Envoie de vraies requetes a l'API pour montrer, en direct, les controles
+   de l'etape 6 du §3.4 : chaque scenario aboutit a 200, 401 ou 403.
+   ========================================================================== */
+
+/** Encode un objet en segment JWT Base64URL (UTF-8). */
+function base64UrlEncodeJson(object) {
+  const bytes = new TextEncoder().encode(JSON.stringify(object));
+  let binary = '';
+  bytes.forEach((b) => { binary += String.fromCharCode(b); });
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+/**
+ * Fabrique un jeton falsifie : le contenu est modifie (roles eleves) mais la
+ * signature d'origine est conservee. Le jeton reste parfaitement lisible ;
+ * seule la verification de signature cote serveur le demasque (§3.6.2).
+ */
+async function forgedToken() {
+  const jwt = decodeJWT(await getAccessToken());
+  const payload = { ...jwt.payload, [ROLES_NAMESPACE]: ['enseignant', 'admin'] };
+  return `${jwt.parts[0]}.${base64UrlEncodeJson(payload)}.${jwt.parts[2]}`;
+}
+
+/** Scenarios proposes selon le role de l'utilisateur connecte. */
+function apiScenarios(role) {
+  const isTeacher = role === ROLES.ENSEIGNANT;
+  const ownPath = isTeacher ? `/api/cours/${TEACHER_COURSE}/etudiants` : '/api/notes/me';
+
+  return [
+    {
+      title: 'Requête légitime',
+      expected: 200,
+      ref: '§3.4 étape 6',
+      method: 'GET',
+      path: ownPath,
+      token: () => getAccessToken(),
+    },
+    {
+      title: 'Sans jeton',
+      expected: 401,
+      ref: '§3.9',
+      method: 'GET',
+      path: ownPath,
+      token: async () => null,
+    },
+    {
+      title: 'Jeton falsifié (rôles modifiés)',
+      expected: 401,
+      ref: '§3.6.2',
+      method: 'GET',
+      path: ownPath,
+      token: forgedToken,
+    },
+    {
+      title: 'ID token au lieu de l\'access token',
+      expected: 401,
+      ref: '§3.6.1',
+      method: 'GET',
+      path: ownPath,
+      token: () => getIdToken(),
+    },
+    isTeacher
+      ? {
+        title: 'Cours non affecté (SEC302)',
+        expected: 403,
+        ref: '§3.5.3',
+        method: 'GET',
+        path: '/api/cours/SEC302/etudiants',
+        token: () => getAccessToken(),
+      }
+      : {
+        title: 'Fiche d\'un autre étudiant',
+        expected: 403,
+        ref: '§3.9',
+        method: 'GET',
+        path: '/api/etudiants/E2024-027/notes',
+        token: () => getAccessToken(),
+      },
+    isTeacher
+      ? {
+        title: 'Route réservée aux étudiants',
+        expected: 403,
+        ref: '§3.5.3',
+        method: 'GET',
+        path: '/api/notes/me',
+        token: () => getAccessToken(),
+      }
+      : {
+        title: 'Saisir une note (rôle manquant)',
+        expected: 403,
+        ref: '§3.5.3',
+        method: 'PUT',
+        path: `/api/cours/${TEACHER_COURSE}/notes/E2024-027`,
+        body: { note: 20 },
+        token: () => getAccessToken(),
+      },
+  ];
+}
+
+function initApiConsole(role) {
+  const list = document.getElementById('api-scenarios');
+  const output = document.getElementById('api-result');
+
+  if (!apiMode) {
+    list.innerHTML = '';
+    output.innerHTML = '<div class="empty-state">L\'API n\'est pas démarrée. Lancez <code>npm start</code> dans le dossier uniportal, puis ouvrez le site depuis ce serveur pour envoyer de vraies requêtes.</div>';
+    return;
+  }
+
+  const scenarios = apiScenarios(role);
+  list.innerHTML = scenarios.map((s, i) => `
+    <button class="scenario" data-index="${i}">
+      <span class="scenario__code scenario__code--${String(s.expected)[0]}xx">${s.expected}</span>
+      <span class="scenario__title">${escapeHtml(s.title)}</span>
+      <span class="scenario__path">${escapeHtml(s.method)} ${escapeHtml(s.path)}</span>
+    </button>`).join('');
+
+  list.querySelectorAll('.scenario').forEach((button) => {
+    button.addEventListener('click', async () => {
+      list.querySelectorAll('.scenario').forEach((b) => b.classList.toggle('is-active', b === button));
+      const scenario = scenarios[Number(button.dataset.index)];
+      output.innerHTML = '<div class="empty-state">Requête en cours...</div>';
+      try {
+        const token = await scenario.token();
+        const res = await apiRequest(scenario.path, { method: scenario.method, body: scenario.body, token });
+        renderApiResult(output, scenario, token, res);
+      } catch (e) {
+        output.innerHTML = `<div class="empty-state">Requête impossible : ${escapeHtml(e.message)}</div>`;
+      }
+    });
+  });
+}
+
+/** Affiche la requete envoyee, le statut, les controles et la reponse. */
+function renderApiResult(output, scenario, token, res) {
+  const tokenPreview = token ? `Bearer ${token.slice(0, 24)}...${token.slice(-12)}` : null;
+  const statusClass = res.status < 300 ? 'ok' : res.status < 500 ? 'ko' : 'warn';
+  const wwwAuth = res.headers.get('WWW-Authenticate');
+  const { checks, ...body } = res.data;
+
+  const requestLines = [
+    `<span class="k">${escapeHtml(scenario.method)}</span> ${escapeHtml(scenario.path)}`,
+    tokenPreview ? `<span class="k">Authorization:</span> <span class="s">${escapeHtml(tokenPreview)}</span>` : '<span class="c">// aucun en-tête Authorization</span>',
+    scenario.body ? `\n${escapeHtml(JSON.stringify(scenario.body))}` : '',
+  ].filter(Boolean).join('\n');
+
+  const checkItems = (checks || []).map((c) => `
+    <li class="check check--${c.ok ? 'ok' : 'ko'}">
+      <span class="check__name">${escapeHtml(c.name)}</span>
+      <span class="check__detail">${escapeHtml(c.detail || '')}</span>
+    </li>`).join('');
+
+  const bodyText = JSON.stringify(body, null, 2);
+  const shortBody = bodyText.length > 1200 ? `${bodyText.slice(0, 1200)}\n...` : bodyText;
+
+  output.innerHTML = `
+    <div class="api-result">
+      <div>
+        <div class="jwt-label">Requête envoyée</div>
+        <pre class="code">${requestLines}</pre>
+      </div>
+      <div>
+        <div class="jwt-label">Réponse</div>
+        <div class="api-status api-status--${statusClass}">
+          HTTP ${res.status}
+          <small>${res.status === scenario.expected ? 'conforme au résultat attendu' : `attendu : ${scenario.expected}`} - ${escapeHtml(scenario.ref)}</small>
+        </div>
+        ${wwwAuth ? `<pre class="code" style="margin-top:10px"><span class="k">WWW-Authenticate:</span> ${escapeHtml(wwwAuth)}</pre>` : ''}
+      </div>
+    </div>
+    ${checkItems ? `<div class="jwt-label" style="margin-top:20px">Contrôles effectués par l'API</div><ol class="checks">${checkItems}</ol>` : ''}
+    <div class="jwt-label" style="margin-top:20px">Corps de la réponse</div>
+    <pre class="jwt-raw" style="margin:0">${escapeHtml(shortBody)}</pre>`;
 }
 
 /* ==========================================================================
