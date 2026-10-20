@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UniPortal - Portail académique sécurisé par Auth0</title>
+  <meta name="description" content="Démonstration d'une plateforme universitaire de consultation de notes utilisant Auth0 (OAuth 2.0, OpenID Connect, PKCE, JWT, RBAC).">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body data-page="landing">
+
+  <!-- Bulles décoratives (CSS pur) -->
+  <div class="bubbles" aria-hidden="true">
+    <div class="bubble bubble--1"></div>
+    <div class="bubble bubble--2"></div>
+    <div class="bubble bubble--3"></div>
+    <div class="bubble bubble--4"></div>
+    <div class="bubble bubble--5"></div>
+    <div class="bubble bubble--6"></div>
+  </div>
+
+  <!-- ===================== Navbar ===================== -->
+  <header class="navbar">
+    <div class="container navbar__inner">
+      <a href="index.html" class="logo" aria-label="UniPortal, accueil">
+        <span class="logo__icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10 12 5 2 10l10 5 10-5Z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/><path d="M22 10v6"/></svg>
+        </span>
+        <span>Uni<em>Portal</em></span>
+      </a>
+
+      <nav class="navbar__actions" aria-label="Navigation principale">
+        <div class="nav-links">
+          <a href="#fonctionnalites">Fonctionnalités</a>
+          <a href="#flux">Flux de connexion</a>
+          <a href="#securite">Sécurité</a>
+        </div>
+        <button class="btn btn--primary btn--sm" data-action="login">Se connecter</button>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <!-- ===================== Hero ===================== -->
+    <section class="hero">
+      <div class="container">
+        <div class="card hero__card">
+          <span class="eyebrow">Exposé d'administration réseau - Chapitre 3</span>
+          <h1>Votre portail académique sécurisé par <span class="highlight">Auth0</span></h1>
+          <p class="hero__lead">
+            Consultez vos notes ou saisissez celles de vos étudiants. L'identité est vérifiée par Auth0 via
+            Universal Login ; UniPortal reçoit des jetons signés et applique les rôles de chacun.
+          </p>
+
+          <div class="hero__actions">
+            <button class="btn btn--primary" data-action="login">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="m10 17 5-5-5-5"/><path d="M15 12H3"/></svg>
+              Se connecter
+            </button>
+            <a class="btn btn--ghost" href="#fonctionnalites">Découvrir</a>
+          </div>
+
+          <div class="hero__badges" aria-label="Protocoles utilisés">
+            <span class="badge">OAuth 2.0</span>
+            <span class="badge">OIDC</span>
+            <span class="badge">PKCE</span>
+            <span class="badge">JWT</span>
+            <span class="badge">RBAC</span>
+          </div>
+
+          <!-- Affiché par app.js si js/auth.js contient encore les placeholders -->
+          <p class="notice" id="config-notice" role="status">
+            Auth0 n'est pas encore configuré. Renseignez <code>domain</code> et <code>clientId</code>
+            dans <code>js/auth.js</code> en suivant le README.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== Fonctionnalités ===================== -->
+    <section class="section" id="fonctionnalites">
+      <div class="container">
+        <div class="section__head">
+          <span class="eyebrow">Fonctionnalités</span>
+          <h2>Ce qu'Auth0 apporte à UniPortal</h2>
+          <p>Chaque brique illustre une notion du chapitre 3 et reste visible dans la démonstration.</p>
+        </div>
+
+        <div class="grid grid--3">
+          <article class="card feature">
+            <div class="feature__icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </div>
+            <h3>Universal Login</h3>
+            <p>La page de connexion est hébergée par Auth0. UniPortal ne manipule jamais le mot de passe : il redirige vers le tenant et récupère un résultat vérifiable.</p>
+            <span class="chapter-ref">§3.3.3 Universal Login</span>
+          </article>
+
+          <article class="card feature">
+            <div class="feature__icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 14 0"/><path d="M19 8v6"/><path d="M16 11h6"/></svg>
+            </div>
+            <h3>Connexion sociale</h3>
+            <p>Un compte Google peut servir à se connecter. Auth0 fédère le fournisseur externe et renvoie à UniPortal un profil normalisé, sans mot de passe local.</p>
+            <span class="chapter-ref">§3.3.4 Connecteurs d'identité</span>
+          </article>
+
+          <article class="card feature">
+            <div class="feature__icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </div>
+            <h3>RBAC</h3>
+            <p>Les rôles « etudiant » et « enseignant » sont définis dans Auth0 et injectés dans les jetons par une Action. L'interface s'adapte au rôle reçu.</p>
+            <span class="chapter-ref">§3.5.3 RBAC et scopes</span>
+          </article>
+
+          <article class="card feature">
+            <div class="feature__icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/></svg>
+            </div>
+            <h3>JSON Web Tokens</h3>
+            <p>Les jetons émis sont des JWT signés en RS256. L'inspecteur du tableau de bord décode leurs trois parties et rappelle qu'un jeton lisible n'est pas un jeton validé.</p>
+            <span class="chapter-ref">§3.2.5 JWT - §3.6.2 Validation</span>
+          </article>
+
+          <article class="card feature">
+            <div class="feature__icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/><path d="m9 10 2 2 4-4"/></svg>
+            </div>
+            <h3>MFA adaptatif</h3>
+            <p>Une preuve supplémentaire (application OTP, notification) peut être exigée selon le risque : nouvel appareil, localisation inhabituelle, compte enseignant.</p>
+            <span class="chapter-ref">§3.5.2 Authentification multifacteur</span>
+          </article>
+
+          <article class="card feature">
+            <div class="feature__icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/></svg>
+            </div>
+            <h3>Journaux d'audit</h3>
+            <p>Chaque connexion, échec ou changement de configuration est consigné dans les logs du tenant, exportables vers un SIEM pour le diagnostic et l'enquête.</p>
+            <span class="chapter-ref">§3.5.5 Journaux et audit</span>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== Flux de connexion ===================== -->
+    <section class="section" id="flux">
+      <div class="container">
+        <div class="section__head">
+          <span class="eyebrow">Flux de connexion</span>
+          <h2>Authorization Code + PKCE, étape par étape</h2>
+          <p>Les six étapes du §3.4, avec les requêtes HTTPS réellement échangées sur TCP/443.</p>
+        </div>
+
+        <div class="flow__actors" aria-label="Acteurs du flux">
+          <span class="actor"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Utilisateur</span>
+          <span class="actor"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 9h20"/></svg>SPA UniPortal</span>
+          <span class="actor"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></svg>Tenant Auth0</span>
+          <span class="actor"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="7" rx="2"/><rect x="2" y="14" width="20" height="7" rx="2"/><path d="M6 6.5h.01"/><path d="M6 17.5h.01"/></svg>API métier</span>
+        </div>
+
+        <ol class="flow" style="list-style:none;padding:0;margin:0">
+          <li class="card step">
+            <span class="step__num">1</span>
+            <div class="step__body">
+              <span class="step__route">Utilisateur → SPA</span>
+              <h3>Demande d'accès</h3>
+              <p>Aucune session valable : le SDK prépare le flux en générant un secret éphémère (PKCE), un <code>state</code> et un <code>nonce</code>.</p>
+<pre class="code"><span class="c">// Généré dans le navigateur, jamais transmis tel quel</span>
+<span class="p">code_verifier</span>  = <span class="s">random(43..128 caractères)</span>
+<span class="p">code_challenge</span> = <span class="s">BASE64URL(SHA256(code_verifier))</span>
+<span class="p">state</span> = <span class="s">random()</span>   <span class="p">nonce</span> = <span class="s">random()</span></pre>
+            </div>
+          </li>
+
+          <li class="card step">
+            <span class="step__num">2</span>
+            <div class="step__body">
+              <span class="step__route">SPA → Auth0</span>
+              <h3>Redirection vers /authorize</h3>
+              <p>Le navigateur résout le domaine du tenant (DNS) et ouvre l'endpoint d'autorisation. L'URI de redirection doit être strictement autorisée.</p>
+<pre class="code"><span class="k">GET</span> /authorize?<span class="p">response_type</span>=<span class="s">code</span>
+  &amp;<span class="p">client_id</span>=<span class="s">VOTRE_CLIENT_ID</span>
+  &amp;<span class="p">redirect_uri</span>=<span class="s">https://uniportal/callback.html</span>
+  &amp;<span class="p">scope</span>=<span class="s">openid profile email offline_access</span>
+  &amp;<span class="p">code_challenge</span>=<span class="s">E9Melhoa2Ow...</span>
+  &amp;<span class="p">code_challenge_method</span>=<span class="s">S256</span>
+  &amp;<span class="p">state</span>=<span class="s">xyz</span>&amp;<span class="p">nonce</span>=<span class="s">n-0S6</span>
+<span class="k">Host:</span> VOTRE-TENANT.auth0.com</pre>
+            </div>
+          </li>
+
+          <li class="card step">
+            <span class="step__num">3</span>
+            <div class="step__body">
+              <span class="step__route">Navigateur ↔ Auth0</span>
+              <h3>Vérification de l'utilisateur</h3>
+              <p>Universal Login présente les méthodes activées : mot de passe, Google, puis une étape MFA si la politique l'exige.</p>
+<pre class="code"><span class="k">POST</span> /u/login?<span class="p">state</span>=<span class="s">hKFo2SBx...</span>
+<span class="k">Content-Type:</span> application/x-www-form-urlencoded
+
+<span class="p">username</span>=<span class="s">etudiant@univ.fr</span>&amp;<span class="p">password</span>=<span class="s">********</span>
+<span class="c">// Le mot de passe reste sur le domaine Auth0</span></pre>
+            </div>
+          </li>
+
+          <li class="card step">
+            <span class="step__num">4</span>
+            <div class="step__body">
+              <span class="step__route">Auth0 → SPA → Auth0</span>
+              <h3>Retour et échange du code</h3>
+              <p>Auth0 renvoie un code à usage unique. La SPA vérifie le <code>state</code>, puis échange le code en prouvant qu'elle détient le <code>code_verifier</code>.</p>
+<pre class="code"><span class="k">HTTP/1.1 302 Found</span>
+<span class="k">Location:</span> /callback.html?<span class="p">code</span>=<span class="s">SplxlOB</span>&amp;<span class="p">state</span>=<span class="s">xyz</span>
+
+<span class="k">POST</span> /oauth/token
+<span class="p">grant_type</span>=<span class="s">authorization_code</span>&amp;<span class="p">code</span>=<span class="s">SplxlOB</span>
+&amp;<span class="p">code_verifier</span>=<span class="s">dBjftJeZ4CVP...</span>&amp;<span class="p">client_id</span>=<span class="s">...</span></pre>
+            </div>
+          </li>
+
+          <li class="card step">
+            <span class="step__num">5</span>
+            <div class="step__body">
+              <span class="step__route">Auth0 → SPA</span>
+              <h3>Utilisation des jetons</h3>
+              <p>La SPA reçoit trois jetons aux rôles distincts. Le SDK valide l'ID token (signature, <code>iss</code>, <code>aud</code>, <code>nonce</code>, <code>exp</code>).</p>
+<pre class="code"><span class="k">HTTP/1.1 200 OK</span>
+{
+  <span class="p">"id_token"</span>: <span class="s">"eyJhbGciOiJSUzI1NiIs..."</span>,
+  <span class="p">"access_token"</span>: <span class="s">"eyJhbGciOiJSUzI1NiIs..."</span>,
+  <span class="p">"refresh_token"</span>: <span class="s">"v1.MjQ5..."</span>,
+  <span class="p">"token_type"</span>: <span class="s">"Bearer"</span>, <span class="p">"expires_in"</span>: <span class="s">86400</span>
+}</pre>
+            </div>
+          </li>
+
+          <li class="card step">
+            <span class="step__num">6</span>
+            <div class="step__body">
+              <span class="step__route">SPA → API métier</span>
+              <h3>Contrôle par l'API</h3>
+              <p>L'access token accompagne chaque appel. L'API vérifie signature, émetteur, audience, expiration et rôle avant de renvoyer les notes.</p>
+<pre class="code"><span class="k">GET</span> /api/notes/me
+<span class="k">Authorization:</span> Bearer <span class="s">eyJhbGciOiJSUzI1NiIs...</span>
+
+<span class="c">// 200 si valide et autorisé</span>
+<span class="c">// 401 jeton absent, expiré ou mauvaise audience</span>
+<span class="c">// 403 identité valide mais action interdite</span></pre>
+            </div>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- ===================== Sécurité ===================== -->
+    <section class="section" id="securite">
+      <div class="container">
+        <div class="section__head">
+          <span class="eyebrow">Sécurité</span>
+          <h2>Les garde-fous du flux</h2>
+          <p>Chaque paramètre répond à une menace précise. Les retirer ouvre une faille, même avec Auth0.</p>
+        </div>
+
+        <div class="grid grid--3">
+          <article class="card security-item">
+            <span class="security-item__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></svg></span>
+            <div>
+              <h3>PKCE</h3>
+              <p>Lie l'échange du code au navigateur qui a lancé le flux grâce au couple verifier / challenge S256.</p>
+              <span class="threat">Contre : interception du code - §3.4 étape 4</span>
+            </div>
+          </article>
+
+          <article class="card security-item">
+            <span class="security-item__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg></span>
+            <div>
+              <h3>Paramètre state</h3>
+              <p>Valeur aléatoire envoyée à /authorize et comparée au retour : la réponse correspond bien à notre requête.</p>
+              <span class="threat">Contre : CSRF sur le callback - §3.4 étape 2</span>
+            </div>
+          </article>
+
+          <article class="card security-item">
+            <span class="security-item__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg></span>
+            <div>
+              <h3>Nonce</h3>
+              <p>Inscrit dans l'ID token par Auth0 et vérifié par le SDK : un jeton capturé ne peut pas être rejoué.</p>
+              <span class="threat">Contre : rejeu de jeton - §3.6.2</span>
+            </div>
+          </article>
+
+          <article class="card security-item">
+            <span class="security-item__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+            <div>
+              <h3>HTTPS / TLS</h3>
+              <p>Tous les échanges passent par TLS sur TCP/443. La validation du certificat authentifie le tenant.</p>
+              <span class="threat">Contre : écoute et usurpation - §3.7.2</span>
+            </div>
+          </article>
+
+          <article class="card security-item">
+            <span class="security-item__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/></svg></span>
+            <div>
+              <h3>Rotation des refresh tokens</h3>
+              <p>Chaque renouvellement émet un nouveau refresh token et invalide l'ancien. Une réutilisation révoque toute la famille.</p>
+              <span class="threat">Contre : vol de refresh token - §3.6.1</span>
+            </div>
+          </article>
+
+          <article class="card security-item">
+            <span class="security-item__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg></span>
+            <div>
+              <h3>Redirect URI stricte</h3>
+              <p>Auth0 ne renvoie le code qu'aux URL listées dans « Allowed Callback URLs », comparées à l'identique.</p>
+              <span class="threat">Contre : détournement du retour - §3.6.3</span>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ===================== Footer ===================== -->
+  <footer class="footer">
+    <div class="container footer__inner">
+      <span class="logo">
+        <span class="logo__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10 12 5 2 10l10 5 10-5Z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/><path d="M22 10v6"/></svg></span>
+        <span>Uni<em>Portal</em></span>
+      </span>
+      <p>Démonstration pédagogique - Exposé d'administration réseau, chapitre 3 : présentation générale d'Auth0.</p>
+    </div>
+  </footer>
+
+  <!-- SDK Auth0 (expose window.auth0), puis logique applicative en module ES -->
+  <script src="https://cdn.auth0.com/js/auth0-spa-js/2.1.3/auth0-spa-js.production.js"></script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
