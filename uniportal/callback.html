@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Connexion en cours - UniPortal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<!--
+  Page de retour du flux Auth0 (§3.4, etape 4). Auth0 redirige ici avec
+  ?code=...&state=... ; app.js appelle handleCallback(), qui verifie le state
+  et echange le code contre les jetons (POST /oauth/token avec le
+  code_verifier de PKCE), puis redirige vers le tableau de bord.
+  En cas d'echec, l'utilisateur voit un message neutre ; le detail technique
+  et la piste de diagnostic (§3.7.7) sont ecrits dans la console.
+  Cette URL doit figurer dans les "Allowed Callback URLs" de l'application.
+-->
+<body data-page="callback">
+
+  <div class="bubbles" aria-hidden="true">
+    <div class="bubble bubble--1"></div>
+    <div class="bubble bubble--2"></div>
+    <div class="bubble bubble--4"></div>
+    <div class="bubble bubble--5"></div>
+  </div>
+
+  <main class="center-screen">
+    <div class="card callback-card" role="status" aria-live="polite">
+      <span class="logo">
+        <span class="logo__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10 12 5 2 10l10 5 10-5Z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/><path d="M22 10v6"/></svg></span>
+        <span>Uni<em>Portal</em></span>
+      </span>
+
+      <div class="spinner" id="callback-spinner"></div>
+      <h1 id="callback-title">Connexion en cours...</h1>
+      <p id="callback-text">Veuillez patienter quelques instants.</p>
+
+      <div class="callback-actions" id="callback-actions">
+        <button class="btn btn--primary" data-action="login">Réessayer</button>
+        <a href="index.html" class="btn btn--ghost">Retour à l'accueil</a>
+      </div>
+    </div>
+  </main>
+
+  <script src="https://cdn.auth0.com/js/auth0-spa-js/2.1.3/auth0-spa-js.production.js"></script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

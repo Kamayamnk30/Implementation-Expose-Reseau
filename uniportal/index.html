@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UniPortal - Résultats scolaires en ligne</title>
+  <meta name="description" content="Consultez vos bulletins trimestriels, vos moyennes et les appréciations de vos professeurs.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<!--
+  Page publique. Aucune donnee n'y est affichee : l'acces aux resultats passe
+  par la connexion, deleguee a Auth0 (Universal Login, §3.3.3). Le bouton
+  "Se connecter" appelle login() de js/auth.js, qui redirige vers l'endpoint
+  /authorize du tenant avec PKCE, state et nonce (§3.4, etapes 1 et 2).
+-->
+<body data-page="landing">
+
+  <div class="bubbles" aria-hidden="true">
+    <div class="bubble bubble--1"></div>
+    <div class="bubble bubble--2"></div>
+    <div class="bubble bubble--3"></div>
+    <div class="bubble bubble--4"></div>
+    <div class="bubble bubble--5"></div>
+    <div class="bubble bubble--6"></div>
+  </div>
+
+  <header class="navbar">
+    <div class="container navbar__inner">
+      <a href="index.html" class="logo" aria-label="UniPortal, accueil">
+        <span class="logo__icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10 12 5 2 10l10 5 10-5Z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/><path d="M22 10v6"/></svg>
+        </span>
+        <span>Uni<em>Portal</em></span>
+      </a>
+      <nav class="navbar__actions" aria-label="Navigation principale">
+        <div class="nav-links">
+          <a href="#fonctionnalites">Fonctionnalités</a>
+          <a href="#fonctionnement">Comment ça marche</a>
+          <a href="#faq">Questions fréquentes</a>
+        </div>
+        <!-- data-action="login" : branche par app.js sur login() (Auth0) -->
+        <button class="btn btn--primary btn--sm" data-action="login">Se connecter</button>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <!-- ===================== Hero ===================== -->
+    <section class="hero">
+      <div class="container hero__grid">
+        <div class="hero__text">
+          <span class="eyebrow">Espace numérique de l'établissement</span>
+          <h1>Vos résultats scolaires, <span class="highlight">au même endroit</span></h1>
+          <p class="hero__lead">
+            Bulletins trimestriels, moyennes par matière et appréciations de vos professeurs,
+            accessibles à tout moment depuis un ordinateur ou un téléphone.
+          </p>
+          <div class="hero__actions">
+            <button class="btn btn--primary" data-action="login">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="m10 17 5-5-5-5"/><path d="M15 12H3"/></svg>
+              Se connecter
+            </button>
+            <a class="btn btn--ghost" href="#fonctionnalites">Découvrir</a>
+          </div>
+          <ul class="hero__points">
+            <li>Bulletins des trois trimestres</li>
+            <li>Appréciations des professeurs</li>
+            <li>Compte personnel protégé</li>
+          </ul>
+        </div>
+
+        <!-- Apercu decoratif d'un bulletin (donnees d'exemple, sans lien avec l'API) -->
+        <div class="card preview" aria-hidden="true">
+          <div class="preview__head">
+            <div>
+              <div class="preview__label">Bulletin - 2e trimestre</div>
+              <div class="preview__title">Seconde B</div>
+            </div>
+            <div class="preview__avg"><span>14,6</span><small>/20</small></div>
+          </div>
+          <div class="preview__rows">
+            <div class="preview__row"><span>Mathématiques</span><div class="bar"><i style="width:78%"></i></div><b>15,5</b></div>
+            <div class="preview__row"><span>Français</span><div class="bar"><i style="width:66%"></i></div><b>13,0</b></div>
+            <div class="preview__row"><span>Physique-Chimie</span><div class="bar"><i style="width:72%"></i></div><b>14,5</b></div>
+            <div class="preview__row"><span>Anglais</span><div class="bar"><i style="width:84%"></i></div><b>16,5</b></div>
+          </div>
+          <div class="preview__foot">Compliments du conseil de classe</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== Fonctionnalités ===================== -->
+    <section class="section" id="fonctionnalites">
+      <div class="container">
+        <div class="section__head">
+          <span class="eyebrow">Fonctionnalités</span>
+          <h2>Tout le suivi scolaire, simplement</h2>
+          <p>Une plateforme pensée pour les élèves, leurs familles et l'équipe pédagogique.</p>
+        </div>
+
+        <div class="grid grid--3">
+          <article class="card feature">
+            <div class="feature__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/></svg></div>
+            <h3>Bulletins trimestriels</h3>
+            <p>Retrouvez le bulletin de chaque trimestre dès sa publication, avec le détail de toutes les matières.</p>
+          </article>
+
+          <article class="card feature">
+            <div class="feature__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 5-6"/></svg></div>
+            <h3>Moyennes et rang</h3>
+            <p>Moyenne générale, moyenne de la classe, notes minimale et maximale : situez vos résultats en un coup d'œil.</p>
+          </article>
+
+          <article class="card feature">
+            <div class="feature__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+            <h3>Appréciations</h3>
+            <p>Lisez les commentaires de chaque professeur et l'appréciation générale du conseil de classe.</p>
+          </article>
+
+          <article class="card feature">
+            <div class="feature__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></div>
+            <h3>Saisie des notes</h3>
+            <p>Les professeurs saisissent moyennes et appréciations de leurs classes, publiées immédiatement aux élèves.</p>
+          </article>
+
+          <article class="card feature">
+            <div class="feature__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg></div>
+            <h3>Impression</h3>
+            <p>Imprimez ou enregistrez votre bulletin au format PDF pour le conserver ou le transmettre.</p>
+          </article>
+
+          <article class="card feature">
+            <div class="feature__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+            <h3>Accès protégé</h3>
+            <p>Chacun ne voit que ce qui le concerne : un élève accède à ses seuls résultats, un professeur à ses classes.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== Espaces ===================== -->
+    <section class="section section--tight">
+      <div class="container grid grid--2">
+        <article class="card audience">
+          <span class="audience__tag">Élèves</span>
+          <h3>Suivez votre progression</h3>
+          <ul class="checklist">
+            <li>Bulletin détaillé de chaque trimestre</li>
+            <li>Moyenne générale et rang dans la classe</li>
+            <li>Comparaison avec la moyenne de la classe</li>
+            <li>Appréciations de chaque professeur</li>
+          </ul>
+        </article>
+        <article class="card audience">
+          <span class="audience__tag audience__tag--alt">Professeurs</span>
+          <h3>Gagnez du temps en fin de trimestre</h3>
+          <ul class="checklist">
+            <li>Liste des élèves de chacune de vos classes</li>
+            <li>Saisie rapide des moyennes et appréciations</li>
+            <li>Moyenne de classe calculée automatiquement</li>
+            <li>Publication immédiate auprès des élèves</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <!-- ===================== Fonctionnement ===================== -->
+    <section class="section" id="fonctionnement">
+      <div class="container">
+        <div class="section__head">
+          <span class="eyebrow">Comment ça marche</span>
+          <h2>Trois étapes pour accéder à vos résultats</h2>
+        </div>
+        <ol class="steps">
+          <li class="card step">
+            <span class="step__num">1</span>
+            <h3>Connectez-vous</h3>
+            <p>Utilisez les identifiants transmis par l'établissement ou votre compte Google.</p>
+          </li>
+          <li class="card step">
+            <span class="step__num">2</span>
+            <h3>Choisissez le trimestre</h3>
+            <p>Votre bulletin le plus récent s'affiche ; les précédents restent consultables.</p>
+          </li>
+          <li class="card step">
+            <span class="step__num">3</span>
+            <h3>Consultez et imprimez</h3>
+            <p>Parcourez vos moyennes et appréciations, puis imprimez votre bulletin si besoin.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- ===================== FAQ ===================== -->
+    <section class="section" id="faq">
+      <div class="container container--narrow">
+        <div class="section__head">
+          <span class="eyebrow">Questions fréquentes</span>
+          <h2>Besoin d'aide ?</h2>
+        </div>
+        <div class="faq">
+          <details class="card">
+            <summary>Je n'arrive pas à me connecter.</summary>
+            <p>Vérifiez l'adresse e-mail utilisée, puis utilisez le lien « Mot de passe oublié » de la page de connexion. Si le problème persiste, contactez le secrétariat de l'établissement.</p>
+          </details>
+          <details class="card">
+            <summary>Qui peut voir mes résultats ?</summary>
+            <p>Vous seul, ainsi que les professeurs de votre classe. Les autres élèves n'ont aucun accès à vos notes.</p>
+          </details>
+          <details class="card">
+            <summary>Quand les notes sont-elles publiées ?</summary>
+            <p>Les moyennes apparaissent dès leur saisie par les professeurs. Le bulletin est complet à la fin du trimestre, après le conseil de classe.</p>
+          </details>
+          <details class="card">
+            <summary>Mon compte affiche « en attente d'activation ».</summary>
+            <p>Votre profil d'élève ou de professeur n'a pas encore été attribué. Le secrétariat s'en charge ; reconnectez-vous ensuite.</p>
+          </details>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer__inner">
+      <span class="logo">
+        <span class="logo__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10 12 5 2 10l10 5 10-5Z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/><path d="M22 10v6"/></svg></span>
+        <span>Uni<em>Portal</em></span>
+      </span>
+      <p>Plateforme de consultation des résultats scolaires - Contact : secretariat@etablissement.example</p>
+    </div>
+  </footer>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <!-- SDK Auth0 auth0-spa-js 2.1.3 (expose window.auth0), puis la logique en module ES -->
+  <script src="https://cdn.auth0.com/js/auth0-spa-js/2.1.3/auth0-spa-js.production.js"></script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

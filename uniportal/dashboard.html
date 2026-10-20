@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mon espace - UniPortal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<!--
+  Espace protege. requireAuth() (js/auth.js) renvoie vers l'accueil si aucune
+  session Auth0 n'existe ; la classe is-loading masque le contenu d'ici la.
+  Le role lu dans la claim personnalisee des jetons (RBAC, §3.5.3) choisit la
+  vue : bulletin pour un eleve, saisie pour un professeur. Les donnees
+  viennent de l'API (/api), appelee avec l'access token dans l'en-tete
+  Authorization : c'est l'API qui decide de l'acces (§3.4 etape 6, §3.9).
+-->
+<body data-page="dashboard" class="is-loading">
+
+  <div class="bubbles" aria-hidden="true">
+    <div class="bubble bubble--1"></div>
+    <div class="bubble bubble--2"></div>
+    <div class="bubble bubble--4"></div>
+    <div class="bubble bubble--6"></div>
+  </div>
+
+  <header class="navbar">
+    <div class="container navbar__inner">
+      <a href="index.html" class="logo" aria-label="UniPortal, accueil">
+        <span class="logo__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10 12 5 2 10l10 5 10-5Z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/><path d="M22 10v6"/></svg></span>
+        <span>Uni<em>Portal</em></span>
+      </a>
+
+      <div class="user-menu">
+        <div class="avatar avatar--sm" id="user-avatar"></div>
+        <div class="user-menu__id">
+          <div class="user-menu__name" id="user-name"></div>
+          <div class="user-menu__role" id="user-role"></div>
+        </div>
+        <!-- data-action="logout" : logout() vide la session locale puis appelle /v2/logout (§3.7.4) -->
+        <button class="btn btn--ghost btn--sm" data-action="logout" aria-label="Se déconnecter">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>
+          <span class="hide-sm">Déconnexion</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="dashboard">
+    <div class="container" id="espace"></div>
+  </main>
+
+  <footer class="footer footer--compact">
+    <div class="container">UniPortal - Plateforme de consultation des résultats scolaires</div>
+  </footer>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="https://cdn.auth0.com/js/auth0-spa-js/2.1.3/auth0-spa-js.production.js"></script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
